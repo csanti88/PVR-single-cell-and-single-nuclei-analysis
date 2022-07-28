@@ -1,0 +1,267 @@
+---
+title: "pvr_mg_figure4_UCell_combUMAP"
+author: "Megan Gimmen"
+date: "3/2/2022"
+output: html_document
+---
+
+METHOD: regress out nCount_RNA and nFeature_RNA.
+```{r}
+seurat <- readRDS(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_snsc_mg_ogumap.rds")
+mgfeat <- read_csv(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/mgfeat.csv")
+mgfeat <- as.character(mgfeat$x)
+
+seurat <- NormalizeData(seurat) %>%
+  FindVariableFeatures(selection.method = "vst", nfeatures = 2000) %>%
+  ScaleData(vars.to.regress = c("nCount_RNA", "nFeature_RNA")) %>% 
+  RunPCA(npcs = 100, features = mgfeat) #use mgfeat from Clayton to run PCA
+ElbowPlot(seurat)
+seurat <- FindNeighbors(seurat, dims = 1:100) %>%
+  FindClusters(resolution = 0.6) %>%
+  RunUMAP(dims = 1:25)
+
+seurat <- RunHarmony(seurat, group.by.vars = c("orig.ident", "run"))
+
+#find UMAP shape
+seurat <- RunUMAP(seurat, dims = 1:9,reduction = "harmony") %>% 
+  FindNeighbors(dims = 1:9, reduction = "harmony") %>% 
+  FindClusters(resolution = 0.9)
+
+og <- seurat
+
+table(seurat$treatment, seurat$run)
+table(seurat$run)
+x <- SplitObject(seurat, split.by= c("run"))
+nuc <- x$Nuclei
+cells <- x$Cells
+
+mg_cellnames_ds <- colnames(merge(cells[, sample(colnames(cells), size =1740, replace=F)],
+                              y = nuc))
+seurat <- subset(seurat, cells = mg_cellnames_ds)
+table(seurat$treatment, seurat$run)
+table(seurat$run)
+
+seurat <- NormalizeData(seurat) %>% ScaleData() #normalize & scale when comparing subset of cells/nuc
+
+a <- DimPlot(seurat, group.by = "treatment", label=F) + 
+  theme(plot.title = element_text(hjust=0.5, face="bold")) + 
+  scale_colour_viridis_d(begin= .12, end = 0.87, option="turbo") 
+b <- DimPlot(seurat, split.by = "run", group.by = "treatment", label=F) + 
+  theme(plot.title = element_text(hjust=0.5, face="bold")) + 
+  scale_colour_viridis_d(begin= .12, end = 0.87, option="turbo") 
+c <- DimPlot(seurat, group.by = "treatment", label=F) + 
+  theme(plot.title = element_text(hjust=0.5, face="bold")) + 
+  scale_colour_viridis_d(begin= .12, end = 0.87, option="turbo") 
+d <- DimPlot(seurat, split.by = "run", group.by = "State", label=F) + 
+  theme(plot.title = element_text(hjust=0.5, face="bold")) + 
+  scale_colour_viridis_d(begin= .12, end = 0.87, option="turbo")
+plot_grid(a,b,c,d, ncol = 2)
+
+seurat@meta.data$treatment <- factor(seurat@meta.data$treatment, ordered = T, levels= c("Control", "Hr4", "Day14"))
+seurat@meta.data$State <- factor(seurat@meta.data$State, ordered = T, levels= c("Resting", "Reactive", "Fibrotic"))
+
+saveRDS(seurat, file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_snsc_mg_ogumap_eq.rds")
+```
+
+```{r}
+#treatment
+colors3 <- c("#3CB54A","#642E8D","#F15B2B")
+show_col(colors3)
+
+a <- DimPlot(seurat, group.by = "treatment", label=F, pt.size = 0.5, shuffle= T, cols= colors3) +
+        theme_classic() + theme(axis.ticks = element_blank(), axis.text = element_blank(),
+        axis.line = element_blank(), title= element_blank(),
+        legend.position = "none")
+
+
+b <- DimPlot(seurat, cells= colnames(subset(seurat, subset = (run == "Cells"))),
+        group.by = "treatment", label=F, pt.size = 0.5, shuffle= T, cols= colors3) +
+        theme_classic() + theme(axis.ticks = element_blank(), axis.text = element_blank(),
+        axis.line = element_blank(), title= element_blank(),
+        legend.position = "none")
+
+c <- DimPlot(seurat, cells= colnames(subset(seurat, subset = (run == "Nuclei"))),
+        group.by = "treatment", label=F, pt.size = 0.5, shuffle= T, cols= colors3) +
+        theme_classic() + theme(axis.ticks = element_blank(), axis.text = element_blank(),
+        axis.line = element_blank(), title= element_blank(),
+        legend.position = "none")
+
+l <- DimPlot(seurat, group.by = "treatment", label=F, pt.size = 0.5, shuffle= T, cols= colors3) +
+        theme_classic() + theme(axis.ticks = element_blank(), axis.text = element_blank(),
+        axis.line = element_blank(), title= element_blank())
+l <- cowplot::get_legend(l)
+
+plot_grid(a,b,c,l, nrow=1)
+
+#State
+#colors3 <- c("#5ae17c","#005ca3", "#ff8383")
+colors3 <- c("#2BA9E1", "#FBAF42", "#B7295C")
+show_col(colors3)
+
+a <- DimPlot(seurat, group.by = "State", label=F, pt.size = 0.5, shuffle= T, cols= colors3) +
+        theme_classic() + theme(axis.ticks = element_blank(), axis.text = element_blank(),
+        axis.line = element_blank(), title= element_blank(),
+        legend.position = "none")
+
+b <- DimPlot(seurat, cells= colnames(subset(seurat, subset = (run == "Cells"))),
+        group.by = "State", label=F, pt.size = 0.5, shuffle= T, cols= colors3) +
+        theme_classic() + theme(axis.ticks = element_blank(), axis.text = element_blank(),
+        axis.line = element_blank(), title= element_blank(),
+        legend.position = "none")
+  
+c <- DimPlot(seurat, cells= colnames(subset(seurat, subset = (run == "Nuclei"))),
+        group.by = "State", label=F, pt.size = 0.5, shuffle= T, cols= colors3) +
+        theme_classic() + theme(axis.ticks = element_blank(), axis.text = element_blank(),
+        axis.line = element_blank(), title= element_blank(),
+        legend.position = "none")
+
+l <- DimPlot(seurat, group.by = "State", label=F, pt.size = 0.5, shuffle= T, cols= colors3) +
+        theme_classic() + theme(axis.ticks = element_blank(), axis.text = element_blank(),
+        axis.line = element_blank(), title= element_blank())
+l <- cowplot::get_legend(l)
+
+plot_grid(a,b,c,l, nrow=1) 
+
+#+ coord_fixed()
+```
+
+Normal feature plots.
+```{r}
+cells <- subset(seurat, subset = (run == "Cells"))
+
+a <- FeaturePlot(cells, features = c('resting_UCell'), order=T, min.cutoff = '0.25') + 
+      scale_colour_viridis() 
+b <- FeaturePlot(cells, features = c('reactive_UCell'), order=T, min.cutoff = '0.03') + 
+      scale_colour_viridis()
+c <- FeaturePlot(cells, features = c('fibrotic_UCell'), order=T, min.cutoff = '0.53') + 
+      scale_colour_viridis()
+plot_grid(a,b,c, ncol=1)
+
+
+
+nuc <- subset(seurat, subset = (run == "Nuclei"))
+
+a <- FeaturePlot(nuc, features = c('resting_UCell'), order=T, min.cutoff = '0.16') + 
+      scale_colour_viridis()
+b <- FeaturePlot(nuc, features = c('reactive_UCell'), order=T, min.cutoff = '0.22') + 
+      scale_colour_viridis()
+c <- FeaturePlot(nuc, features = c('fibrotic_UCell'), order=T, min.cutoff = '0.05') + 
+      scale_colour_viridis()
+plot_grid(a,b,c, ncol=1)
+```
+
+Stripped feature plots.
+```{r}
+a <- FeaturePlot(cells, features = c('resting_UCell'), order=T, min.cutoff = '0.25', pt.size = 0.5) + 
+      scale_colour_viridis() + theme_classic() + 
+      theme(axis.ticks = element_blank(), axis.text = element_blank(),
+      axis.line = element_blank(), title= element_blank(), legend.position = "none")
+b <- FeaturePlot(cells, features = c('reactive_UCell'), order=T, min.cutoff = '0.03', pt.size = 0.5) + 
+      scale_colour_viridis() + theme_classic() + 
+      theme(axis.ticks = element_blank(), axis.text = element_blank(),
+      axis.line = element_blank(), title= element_blank(), legend.position = "none")
+c <- FeaturePlot(cells, features = c('fibrotic_UCell'), order=T, min.cutoff = '0.53', pt.size = 0.5) + 
+      scale_colour_viridis() + theme_classic() + 
+      theme(axis.ticks = element_blank(), axis.text = element_blank(),
+      axis.line = element_blank(), title= element_blank(), legend.position = "none")
+plot_grid(a,b,c, ncol=1)
+
+a <- FeaturePlot(nuc, features = c('resting_UCell'), order=T, min.cutoff = '0.16', pt.size = 0.5) + 
+      scale_colour_viridis() + theme_classic() + 
+      theme(axis.ticks = element_blank(), axis.text = element_blank(),
+      axis.line = element_blank(), title= element_blank(), legend.position = "none")
+b <- FeaturePlot(nuc, features = c('reactive_UCell'), order=T, min.cutoff = '0.22', pt.size = 0.5) + 
+      scale_colour_viridis() + theme_classic() + 
+      theme(axis.ticks = element_blank(), axis.text = element_blank(),
+      axis.line = element_blank(), title= element_blank(), legend.position = "none")
+c <- FeaturePlot(nuc, features = c('fibrotic_UCell'), order=T, min.cutoff = '0.05', pt.size = 0.5) + 
+      scale_colour_viridis() + theme_classic() + 
+      theme(axis.ticks = element_blank(), axis.text = element_blank(),
+      axis.line = element_blank(), title= element_blank(), legend.position = "none")
+plot_grid(a,b,c, ncol=1)
+```
+
+Barplot
+```{r}
+table(seurat$run, seurat$treatment)
+x <- SplitObject(seurat, split.by= "run")
+    cells <- x$Cells
+      cells <- SplitObject(cells, split.by= "treatment")
+        cells_con <- cells$Control
+        cells_hr4 <- cells$Hr4
+        cells_d14 <- cells$Day14
+    nuc <- x$Nuclei
+      nuc <- SplitObject(nuc, split.by= "treatment")
+        nuc_con <- nuc$Control
+        nuc_hr4 <- nuc$Hr4
+        nuc_d14 <- nuc$Day14
+
+ds_cellnames <- colnames(merge(cells_con,
+                              y = c(cells_hr4[, sample(colnames(cells_hr4), size =87, replace=F)], 
+                                  cells_d14[, sample(colnames(cells_d14), size =87, replace=F)],
+                                  nuc_con[, sample(colnames(nuc_con), size =87, replace=F)],
+                                  nuc_hr4[, sample(colnames(nuc_hr4), size =87, replace=F)],
+                                  nuc_d14[, sample(colnames(nuc_d14), size =87, replace=F)])
+))
+seurat_eq_runtreat <- subset(seurat, cells = ds_cellnames)
+table(seurat_eq_runtreat$treatment, seurat_eq_runtreat$run)
+
+#RUN PLOT
+order_barplot_3 <- as.integer(c(3,2,1))
+colors3 <- c("#2BA9E1", "#FBAF42", "#B7295C")
+dittoBarPlot(seurat_eq_runtreat, "State", group.by= "run", var.labels.reorder= order_barplot_3,
+             color.panel= colors3, main=NULL)
+
+#TREATMENT PLOT
+xorder <- as.integer(c(1,3,2))
+colors3 <- c("#2BA9E1", "#FBAF42", "#B7295C")
+dittoBarPlot(seurat_eq_runtreat, "State", group.by= "treatment", var.labels.reorder= order_barplot_3,
+             x.reorder= xorder, color.panel= colors3, main=NULL)
+
+```
+
+SPLIT BY MG STATE
+```{r}
+x <- SplitObject(seurat, split.by= "State")
+rest <- x$Resting
+react <- x$Reactive
+fib <- x$Fibrotic
+rm(x)
+
+rest <- NormalizeData(rest) %>% ScaleData()
+react <- NormalizeData(react) %>% ScaleData()
+fib <- NormalizeData(fib) %>% ScaleData()
+
+gene.set <- list(
+                  resting = c("GLUL","AQP4","SLC1A3","RAX","RLBP1","KDR","PRDX6", "LHX2", "KCNJ10", "TCF7L2"),
+                  reactive = c("GFAP", "LIF", "IL6", "STAT3", "NFKBIA", "IRF1", "NFKB1", "VCAM1"),
+                  fibrotic= c("ACTA2", "COL1A1", "KLF6", "MKI67", "S100A6", "S100A11", "LOC100353245", 
+                              "LOC103344972", "CTGF")
+                  )
+
+rest <- AddModuleScore_UCell(rest, features= gene.set)
+react <- AddModuleScore_UCell(react, features= gene.set)
+fib <- AddModuleScore_UCell(fib, features= gene.set)
+
+#plot all mg state genes to choose which to plot for figure.
+colors2 <- c("#4484DF", "#DF9144")
+
+VlnPlot(rest, features = gene.set$resting, group.by = "run", cols = colors2)
+VlnPlot(react, features = gene.set$reactive, group.by = "run", cols = colors2)
+VlnPlot(fib, features = gene.set$fibrotic, group.by = "run", cols = colors2)
+```
+
+Violin Plots.
+```{r}
+colors2 <- c("#4484DF", "#DF9144")
+VlnPlot(rest, features = "RLBP1", group.by = "run", cols = colors2)
+VlnPlot(rest, features = "TCF7L2", group.by = "run", cols = colors2)
+
+VlnPlot(react, features = "IRF1", group.by = "run", cols = colors2)
+VlnPlot(react, features = "NFKB1", group.by = "run", cols = colors2)
+
+VlnPlot(fib, features = "LOC103344972", group.by = "run", cols = colors2) #S100A4
+VlnPlot(fib, features = "KLF6", group.by = "run", cols = colors2)
+```
+
+

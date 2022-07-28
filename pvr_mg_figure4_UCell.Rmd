@@ -1,0 +1,414 @@
+---
+title: "Untitled"
+author: "Megan Gimmen"
+date: "2/27/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# NUCLEI CUSTOM GENES
+```{r}
+pvr_sn_mg <- subset(pvr_sn.int, subset= (Celltype == "Müller Glia"))
+mgfeat <- read_csv(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/mgfeat.csv")
+mgfeat <- as.character(mgfeat$x)
+```
+
+```{r}
+DimPlot(pvr_sn_mg, group.by = "Celltype", label=T, repel=T)
+
+pvr_sn_mg <- NormalizeData(pvr_sn_mg) %>%
+         FindVariableFeatures(selection.method = "vst", nfeatures = 2000) %>%
+         ScaleData() %>% 
+         RunPCA(npcs = 100, features = mgfeat) #use mgfeat from Clayton to run PCA
+ElbowPlot(pvr_sn_mg)
+pvr_sn_mg <- FindNeighbors(pvr_sn_mg, dims = 1:100) %>%
+          FindClusters(resolution = 0.6) %>%
+          RunUMAP(dims = 1:25)
+
+pvr_sn_mg <- RunHarmony(pvr_sn_mg, group.by.vars = "orig.ident")
+
+#find UMAP shape
+pvr_sn_mg <- RunUMAP(pvr_sn_mg, dims = 1:4,reduction = "harmony") %>% 
+  FindNeighbors(dims = 1:4, reduction = "harmony") %>% 
+  FindClusters(resolution = 0.9)
+pvr_sn_mg[[sprintf("ClusterNames_%.1f_%dPC", 0.9, 4)]] <- Idents(object = pvr_sn_mg)
+
+# normal plot
+DimPlot(pvr_sn_mg, group.by = "orig.ident", label=F) + 
+    theme(plot.title = element_text(hjust=0.5, face="bold")) + 
+    scale_colour_viridis_d(begin= .12, end = 0.87, option="turbo")
+DimPlot(pvr_sn_mg, group.by = "treatment", label=F) + 
+    theme(plot.title = element_text(hjust=0.5, face="bold")) + 
+    scale_colour_viridis_d(begin= .12, end = 0.87, option="turbo")
+DimPlot(pvr_sn_mg, group.by = "seurat_clusters", label=T) + 
+    theme(plot.title = element_text(hjust=0.5, face="bold")) + 
+    scale_colour_viridis_d(begin= .12, end = 0.87, option="turbo")
+```
+
+sn Muller Glia cell states.
+```{r}
+gene.set <- list(
+                  resting = c("GLUL","AQP4","SLC1A3","RAX","RLBP1","KDR","PRDX6", "LHX2", "KCNJ10", "TCF7L2"),
+                  reactive = c("GFAP", "LIF", "IL6", "STAT3", "NFKBIA", "IRF1", "NFKB1", "VCAM1"),
+                  fibrotic= c("ACTA2", "COL1A1", "KLF6", "MKI67", "S100A6", "S100A11", "LOC100353245", 
+                              "LOC103344972", "CTGF")
+                  )
+
+pvr_sn_mg <- AddModuleScore_UCell(pvr_sn_mg, features= gene.set)
+
+a <- FeaturePlot(pvr_sn_mg, features = c('resting_UCell'), order=T) + 
+      scale_colour_viridis(begin= .12, end = 0.87, option="turbo")
+b <- FeaturePlot(pvr_sn_mg, features = c('reactive_UCell'), order=T) + 
+      scale_colour_viridis(begin= .12, end = 0.87, option="turbo")
+c <- FeaturePlot(pvr_sn_mg, features = c('fibrotic_UCell'), order=T) + 
+      scale_colour_viridis(begin= .12, end = 0.87, option="turbo")
+d <- DimPlot(pvr_sn_mg, group.by = "treatment", label=T) +  
+    scale_colour_viridis_d(begin= .12, end = 0.87, option="turbo")
+e <- DimPlot(pvr_sn_mg, group.by = "seurat_clusters", label=T) +  
+    scale_colour_viridis_d(begin= .12, end = 0.87, option="turbo")
+f <- DotPlot(pvr_sn_mg, features= c('resting_UCell', 'reactive_UCell', 'fibrotic_UCell')) + 
+      scale_colour_viridis(begin= .12, end = 0.87, option="turbo") + RotatedAxis()
+plot_grid(a,b,c,d,e,f, ncol=3)
+
+
+pvr_sn_mg <- RenameIdents(pvr_sn_mg, 
+                            `0`="Resting", 
+                            `7`="Resting", 
+                            `6`="Resting",
+                            `3`="Reactive",
+                            `4`="Reactive",
+                            `9`="Fibrotic",
+                            `5`="Fibrotic", 
+                            `8`="Fibrotic", 
+                            `1`="Fibrotic",
+                            `2`="Fibrotic")  
+
+levels(x= pvr_sn_mg@active.ident) <- c("Resting", "Reactive", "Fibrotic")
+pvr_sn_mg[["State"]] <- pvr_sn_mg@active.ident
+
+
+
+pvr_sn_mg@meta.data$treatment <- factor(pvr_sn_mg@meta.data$treatment, ordered = T, levels= c("Control", "Hr4", "Day14"))
+pvr_sn_mg@meta.data$State <- factor(pvr_sn_mg@meta.data$State, ordered = T, levels= c("Resting", "Reactive", "Fibrotic"))
+
+#colors <- scales::viridis_pal(begin= .12, end = 0.87, option="turbo")(30)
+#colors <- scales::viridis_pal(begin= .12, end = 0.87, option="turbo")(9)
+#show_col(colors)
+
+
+#state
+colors3 <- c("#2BA9E1", "#FBAF42", "#B7295C")
+show_col(colors3)
+  #normal plot
+  DimPlot(pvr_sn_mg, group.by = "State", label=F, cols= colors3, shuffle=T) + theme_classic() + 
+        theme(axis.ticks = element_blank(), axis.text = element_blank(),
+        axis.line = element_blank(), title= element_blank())
+  #stripped plot
+  DimPlot(pvr_sn_mg, group.by = "State", label=F, cols= colors3, shuffle=T) + theme_classic() + 
+        theme(axis.ticks = element_blank(), axis.text = element_blank(),
+        axis.line = element_blank(), title= element_blank(), legend.position = "none") 
+
+#treatment
+#I LEFT OFF HERE! PICK DIFF COLORS FOR TREATMENT, REPLOT FIG4 UMAPS AND BARPLOTS W CORRECT COLORS
+colors3 <- c("#48b062","#4c7ddd","#d55334")
+  #normal
+  DimPlot(pvr_sn_mg, group.by = "treatment", label=F, cols= colors3, shuffle=T) + theme_classic() + 
+        theme(axis.ticks = element_blank(), axis.text = element_blank(),
+        axis.line = element_blank(), title= element_blank(), legend.position = "none")
+  #stripped
+  DimPlot(pvr_sn_mg, group.by = "treatment", label=F, cols= colors3, shuffle=T) + theme_classic() + 
+        theme(axis.ticks = element_blank(), axis.text = element_blank(),
+        axis.line = element_blank(), title= element_blank())
+
+```
+state barplot.
+```{r}
+#colors3 <- c("#5bcbaf", "#cbaf5b","#af5bcb")
+colors3 <- c("#2BA9E1", "#FBAF42", "#B7295C")
+show_col(colors3)
+order_barplot_3 <- as.integer(c(3,2,1))
+xorder <- as.integer(c(1,3,2))
+
+#NORMAL PLOT
+dittoBarPlot(pvr_sn_mg, "State", group.by= "treatment", var.labels.reorder= order_barplot_3,color.panel= colors3, main=NULL, x.reorder=xorder)
+
+#NOPLOT WITH NO LABEL
+dittoBarPlot(pvr_sn_mg, "State", group.by= "treatment", var.labels.reorder= order_barplot_3,color.panel= colors3, main=NULL) + 
+             theme(axis.ticks = element_blank(), axis.text = element_blank(), 
+             axis.line = element_blank(), title= element_blank(), legend.position = "none")
+```
+
+Feature plot of MG States.
+```{r}
+#normal plot
+FeaturePlot(pvr_sn_mg, features = "resting_UCell")
+FeaturePlot(pvr_sn_mg, features = "reactive_UCell")
+FeaturePlot(pvr_sn_mg, features = "fibrotic_UCell")
+
+#stripped plot
+FeaturePlot(pvr_sn_mg, features = "resting_UCell") + 
+      theme(axis.ticks = element_blank(), axis.text = element_blank(),
+      axis.line = element_blank(), title= element_blank()) 
+FeaturePlot(pvr_sn_mg, features = "reactive_UCell") + 
+      theme(axis.ticks = element_blank(), axis.text = element_blank(),
+      axis.line = element_blank(), title= element_blank()) 
+FeaturePlot(pvr_sn_mg, features = "fibrotic_UCell") + 
+      theme(axis.ticks = element_blank(), axis.text = element_blank(),
+      axis.line = element_blank(), title= element_blank()) 
+
+```
+
+
+# CELLS ORIGINAL UMAP
+```{r}
+pvr_sc_mg_ogumap <- subset(pvr_sc.int, subset= (Celltype == "Müller Glia"))
+Idents(pvr_sc_mg_ogumap) <- pvr_sc_mg_ogumap@meta.data$seurat_clusters
+DimPlot(pvr_sc_mg_ogumap)
+
+plot <- FeaturePlot(pvr_sc_mg_ogumap, features= "VIM") #plot random gene to be able to select cells
+select.cells <- CellSelector(plot = plot)
+pvr_sc_mg_ogumap <- subset(pvr_sc_mg_ogumap, cells = select.cells)
+
+pvr_sc_mg_ogumap <- FindNeighbors(pvr_sc_mg_ogumap, dims = 1:100) %>%
+  FindClusters(resolution = 0.9) 
+
+gene.set <- list(
+                  resting = c("GLUL","AQP4","SLC1A3","RAX","RLBP1","KDR","PRDX6", "LHX2", "KCNJ10", "TCF7L2"),
+                  reactive = c("GFAP", "LIF", "IL6", "STAT3", "NFKBIA", "IRF1", "NFKB1", "VCAM1"),
+                  fibrotic= c("ACTA2", "COL1A1", "KLF6", "MKI67", "S100A6", "S100A11", "LOC100353245", 
+                              "LOC103344972", "CTGF")
+                  )
+
+pvr_sc_mg_ogumap <- AddModuleScore_UCell(pvr_sc_mg_ogumap, features= gene.set)
+
+a <- FeaturePlot(pvr_sc_mg_ogumap, features = c('resting_UCell'), order=T) + 
+  scale_colour_viridis(begin= .12, end = 0.87, option="turbo")
+b <- FeaturePlot(pvr_sc_mg_ogumap, features = c('reactive_UCell'), order=T) + 
+  scale_colour_viridis(begin= .12, end = 0.87, option="turbo")
+c <- FeaturePlot(pvr_sc_mg_ogumap, features = c('fibrotic_UCell'), order=T) + 
+  scale_colour_viridis(begin= .12, end = 0.87, option="turbo")
+d <- DimPlot(pvr_sc_mg_ogumap, group.by = "treatment", label=T) +  
+  scale_colour_viridis_d(begin= .12, end = 0.87, option="turbo")
+e <- DimPlot(pvr_sc_mg_ogumap, group.by = "seurat_clusters", label=T) +  
+  scale_colour_viridis_d(begin= .12, end = 0.87, option="turbo")
+f <- DotPlot(pvr_sc_mg_ogumap, features= c('resting_UCell', 'reactive_UCell', 'fibrotic_UCell')) + 
+  scale_colour_viridis(begin= .12, end = 0.87, option="turbo") + RotatedAxis()
+plot_grid(a,b,c,d,e,f, ncol=3)
+
+
+pvr_sc_mg_ogumap <- RenameIdents(pvr_sc_mg_ogumap, 
+                          `4`="Resting", 
+                          `7`="Resting", 
+                          `8`="Resting",
+                          `10`="Resting",
+                          `5`="Reactive", 
+                          `6`="Reactive", 
+                          `0`="Reactive", 
+                          `1`="Reactive", #reactive or fibrotic?
+                          `3`="Reactive", #reactive or fibrotic?
+                          `2`="Fibrotic",
+                          `9`="Fibrotic")  
+
+levels(x= pvr_sc_mg_ogumap@active.ident) <- c("Resting", "Reactive", "Fibrotic")
+pvr_sc_mg_ogumap[["State"]] <- pvr_sc_mg_ogumap@active.ident
+
+#normal plot
+DimPlot(pvr_sc_mg_ogumap, group.by = "treatment", label=F, order=  c("Day14", "Hr4"), cols= colors3)
+DimPlot(pvr_sc_mg_ogumap, group.by = "State", label=F, cols= colors3)
+
+DimPlot(pvr_sc_mg_ogumap, group.by = "treatment", split.by= "treatment", label=F, cols=c("red", "grey", "grey"))
+#stripped plot
+DimPlot(pvr_sc_mg_ogumap, group.by = "treatment", label=F, order=  c("Day14", "Hr4", "Control"), cols= colors3) + theme_classic() + theme(axis.ticks = element_blank(), axis.text = element_blank(),
+  axis.line = element_blank(), title= element_blank(), legend.position = "none") 
+DimPlot(pvr_sc_mg_ogumap, group.by = "State", label=F, cols= colors3) + 
+  theme_classic() + theme(axis.ticks = element_blank(), axis.text = element_blank(),
+  axis.line = element_blank(), title= element_blank(), legend.position = "none") 
+```
+
+treatment barplot.
+```{r}
+#colors3 <- c("#5ae17c","#005ca3", "#ff8383")
+colors3 <- c("#2BA9E1", "#FBAF42", "#B7295C")
+show_col(colors3)
+
+#NORMAL PLOT
+dittoBarPlot(pvr_sc_mg_ogumap, "State", group.by= "treatment", var.labels.reorder= order_barplot_3,
+             color.panel= colors3, main=NULL)
+
+#NOPLOT WITH NO LABEL
+dittoBarPlot(pvr_sc_mg_ogumap, "State", group.by= "treatment", var.labels.reorder= order_barplot_3,
+             color.panel= colors3, main=NULL) + 
+             theme(axis.ticks = element_blank(), axis.text = element_blank(), 
+             axis.line = element_blank(), title= element_blank(), legend.position = "none")
+```
+
+Feature plot of MG States.
+```{r}
+#normal plot
+FeaturePlot(pvr_sc_mg_ogumap, features = "resting_UCell") 
+FeaturePlot(pvr_sc_mg_ogumap, features = "reactive_UCell")
+FeaturePlot(pvr_sc_mg_ogumap, features = "fibrotic_UCell")
+
+#stripped plot
+FeaturePlot(pvr_sc_mg_ogumap, features = "resting_UCell") + 
+  theme(axis.ticks = element_blank(), axis.text = element_blank(),
+        axis.line = element_blank(), title= element_blank()) 
+FeaturePlot(pvr_sc_mg_ogumap, features = "reactive_UCell") + 
+  theme(axis.ticks = element_blank(), axis.text = element_blank(), 
+        axis.line = element_blank(), title= element_blank()) 
+FeaturePlot(pvr_sc_mg_ogumap, features = "fibrotic_UCell") + 
+  theme(axis.ticks = element_blank(), axis.text = element_blank(),
+        axis.line = element_blank(), title= element_blank()) 
+
+```
+
+#MERGE ALL
+```{r}
+pvr_snsc_mg_ogumap <- merge(pvr_sn_mg, y=pvr_sc_mg_ogumap, project= "pvr_snsc_mg")   
+
+pvr_snsc_mg_ogumap <- NormalizeData(pvr_snsc_mg_ogumap) %>% 
+         ScaleData()
+
+gene.set <- list(
+                  resting = c("GLUL","AQP4","SLC1A3","RAX","RLBP1","KDR","PRDX6", "LHX2", "KCNJ10", "TCF7L2"),
+                  reactive = c("GFAP", "LIF", "IL6", "STAT3", "NFKBIA", "IRF1", "NFKB1", "VCAM1"),
+                  fibrotic= c("ACTA2", "COL1A1", "KLF6", "MKI67", "S100A6", "S100A11", "LOC100353245", 
+                              "LOC103344972", "CTGF")
+                  )
+
+pvr_sc_mg_ogumap <- AddModuleScore_UCell(pvr_sc_mg_ogumap, features= gene.set)
+
+
+order_barplot_3 <- as.integer(c(3,2,1))
+
+#colors3 <- c("#5ae17c","#005ca3", "#ff8383")
+colors3 <- c("#2BA9E1", "#FBAF42", "#B7295C")
+show_col(colors3)
+
+#NORMAL PLOT
+dittoBarPlot(pvr_snsc_mg_ogumap, "State", group.by= "run", var.labels.reorder= order_barplot_3,
+             color.panel= colors3, main=NULL)
+
+#NOPLOT WITH NO LABEL
+dittoBarPlot(pvr_snsc_mg_ogumap, "State", group.by= "run", var.labels.reorder= order_barplot_3,
+             color.panel= colors3, main=NULL) + 
+             theme(axis.ticks = element_blank(), axis.text = element_blank(), 
+             axis.line = element_blank(), title= element_blank(), legend.position = "none")
+```
+
+treatment barplot.
+```{r}
+xorder <- as.integer(c(1,3,2))
+colors3 <- c("#5ae17c","#005ca3", "#ff8383")
+show_col(colors3)
+
+#NORMAL PLOT
+dittoBarPlot(pvr_snsc_mg_ogumap, "State", group.by= "treatment", var.labels.reorder= order_barplot_3,
+             x.reorder= xorder, color.panel= colors3, main=NULL)
+
+#NOPLOT WITH NO LABEL
+dittoBarPlot(pvr_snsc_mg_ogumap, "State", group.by= "treatment", var.labels.reorder= order_barplot_3,
+             x.reorder= xorder, 
+             color.panel= colors3, main=NULL) + 
+             theme(axis.ticks = element_blank(), axis.text = element_blank(), 
+             axis.line = element_blank(), title= element_blank(), legend.position = "none")
+```
+
+```{r}
+colors2 <- c ("#00BFEB", "#E43E3E")
+VlnPlot(pvr_snsc_mg_ogumap, features= c("resting_UCell", "reactive_UCell", "fibrotic_UCell"), group.by= "run", cols = colors2)
+VlnPlot(pvr_snsc_mg_ogumap, features= c("resting_UCell", "reactive_UCell", "fibrotic_UCell"), group.by= "run", cols = colors2, pt.size = 0)
+
+#stripped plot
+a <- VlnPlot(pvr_snsc_mg_ogumap, features= "resting_UCell", group.by= "run",
+        cols = colors2) + 
+        theme(axis.ticks = element_blank(), axis.text = element_blank(), 
+        axis.line = element_blank(), title= element_blank(), legend.position = "none")
+b <- VlnPlot(pvr_snsc_mg_ogumap, features= "reactive_UCell", group.by= "run",
+        cols = colors2) + 
+        theme(axis.ticks = element_blank(), axis.text = element_blank(), 
+        axis.line = element_blank(), title= element_blank(), legend.position = "none")
+c <- VlnPlot(pvr_snsc_mg_ogumap, features= "fibrotic_UCell", group.by= "run",
+        cols = colors2) + 
+        theme(axis.ticks = element_blank(), axis.text = element_blank(), 
+        axis.line = element_blank(), title= element_blank(), legend.position = "none")
+plot_grid(a,b,c, ncol=3)
+
+d <- VlnPlot(pvr_snsc_mg_ogumap, features= "resting_UCell", group.by= "run",
+        cols = colors2, pt.size=0) + 
+        theme(axis.ticks = element_blank(), axis.text = element_blank(), 
+        axis.line = element_blank(), title= element_blank(), legend.position = "none")
+e <- VlnPlot(pvr_snsc_mg_ogumap, features= "reactive_UCell", group.by= "run",
+        cols = colors2, pt.size=0) + 
+        theme(axis.ticks = element_blank(), axis.text = element_blank(), 
+        axis.line = element_blank(), title= element_blank(), legend.position = "none")
+f <- VlnPlot(pvr_snsc_mg_ogumap, features= "fibrotic_UCell", group.by= "run",
+        cols = colors2, pt.size=0) + 
+        theme(axis.ticks = element_blank(), axis.text = element_blank(), 
+        axis.line = element_blank(), title= element_blank(), legend.position = "none")
+plot_grid(d,e,f, ncol=3)
+```
+
+SPLIT BY MG STATE
+```{r}
+x <- SplitObject(pvr_snsc_mg_ogumap, split.by= "State")
+pvr_snsc_mg_ogumap_resting <- x$Resting
+pvr_snsc_mg_ogumap_reactive <- x$Reactive
+pvr_snsc_mg_ogumap_fibrotic <- x$Fibrotic
+rm(x)
+
+pvr_snsc_mg_ogumap_resting <- NormalizeData(pvr_snsc_mg_ogumap_resting) %>% ScaleData()
+pvr_snsc_mg_ogumap_reactive <- NormalizeData(pvr_snsc_mg_ogumap_reactive) %>% ScaleData()
+pvr_snsc_mg_ogumap_fibrotic <- NormalizeData(pvr_snsc_mg_ogumap_fibrotic) %>% ScaleData()
+
+gene.set <- list(
+                  resting = c("GLUL","AQP4","SLC1A3","RAX","RLBP1","KDR","PRDX6", "LHX2", "KCNJ10", "TCF7L2"),
+                  reactive = c("GFAP", "LIF", "IL6", "STAT3", "NFKBIA", "IRF1", "NFKB1", "VCAM1"),
+                  fibrotic= c("ACTA2", "COL1A1", "KLF6", "MKI67", "S100A6", "S100A11", "LOC100353245", 
+                              "LOC103344972", "CTGF")
+                  )
+
+pvr_snsc_mg_ogumap_resting <- AddModuleScore_UCell(pvr_snsc_mg_ogumap_resting, features= gene.set)
+pvr_snsc_mg_ogumap_reactive <- AddModuleScore_UCell(pvr_snsc_mg_ogumap_reactive, features= gene.set)
+pvr_snsc_mg_ogumap_fibrotic <- AddModuleScore_UCell(pvr_snsc_mg_ogumap_fibrotic, features= gene.set)
+
+#plot all mg state genes to choose which to plot for figure.
+colors2 <- c("#4484DF", "#DF9144")
+
+VlnPlot(pvr_snsc_mg_ogumap_resting, features = gene.set$resting, group.by = "run", cols = colors2)
+VlnPlot(pvr_snsc_mg_ogumap_reactive, features = gene.set$reactive, group.by = "run", cols = colors2)
+VlnPlot(pvr_snsc_mg_ogumap_fibrotic, features = gene.set$fibrotic, group.by = "run", cols = colors2)
+```
+
+Violin Plots.
+```{r}
+colors2 <- c("#4484DF", "#DF9144")
+VlnPlot(pvr_snsc_mg_ogumap_resting, features = "RLBP1", group.by = "run", cols = colors2)
+VlnPlot(pvr_snsc_mg_ogumap_resting, features = "TCF7L2", group.by = "run", cols = colors2)
+
+VlnPlot(pvr_snsc_mg_ogumap_reactive, features = "IRF1", group.by = "run", cols = colors2)
+VlnPlot(pvr_snsc_mg_ogumap_reactive, features = "NFKB1", group.by = "run", cols = colors2)
+
+VlnPlot(pvr_snsc_mg_ogumap_fibrotic, features = "LOC103344972", group.by = "run", cols = colors2) #S100A4
+VlnPlot(pvr_snsc_mg_ogumap_fibrotic, features = "KLF6", group.by = "run", cols = colors2)
+```
+
+
+```{r}
+saveRDS(pvr_sc_mg, file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_sc_mg_customgenes.rds")
+saveRDS(pvr_sn_mg, file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_sn_mg_customgenes.rds")
+saveRDS(pvr_sc_mg_ogumap, file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_sc_mg_ogumap.rds")
+saveRDS(pvr_snsc_mg, file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_snsc_mg.rds")
+saveRDS(pvr_snsc_mg_ogumap, file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_snsc_mg_ogumap.rds")
+
+
+pvr_sc_mg <- readRDS(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_sc_mg_customgenes.rds")
+pvr_sn_mg <- readRDS(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_sn_mg_customgenes.rds")
+pvr_sc_mg_ogumap <- readRDS(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_sc_mg_ogumap.rds")
+pvr_snsc_mg <- readRDS(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_snsc_mg.rds")
+pvr_snsc_mg_ogumap <- readRDS(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_snsc_mg_ogumap.rds")
+```
+

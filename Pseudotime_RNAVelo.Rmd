@@ -1,0 +1,27 @@
+---
+title: "Untitled"
+author: "Megan Gimmen"
+date: "5/27/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+seurat <- readRDS(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_mg_eq_alra_pseudotime.rds")
+FeaturePlot(seurat, "pseudotime", pt.size = 0.1) + scale_color_viridis_c()
+```
+
+
+
+```{r}
+#find # of unique pseudotime values
+x <- as.numeric(length(unique(seurat@meta.data$pseudotime)))
+
+y <- as.character(rev(paletteer_c("grDevices::Blues 3", x)))
+show_col(y, labels=F)
+
+write.csv(y, file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/colors_pseudotime.csv")
+```

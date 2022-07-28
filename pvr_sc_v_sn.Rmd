@@ -1,0 +1,2560 @@
+---
+title: "Untitled"
+author: "Megan Gimmen"
+date: "2/15/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Load required packages
+```{r include=FALSE}
+library(Seurat)
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(ggpubr)
+library(viridis)
+library(RColorBrewer)
+library(monocle3)
+library(SeuratWrappers)
+library(SeuratDisk)
+library(scales)
+library(harmony)
+library(patchwork)
+library(magrittr)
+library(plotly)
+library(DoubletFinder)
+library(scDblFinder)
+library(AnnotationHub)
+library(dittoSeq)
+library(cowplot)
+library(SingleCellExperiment)
+library(MetaNeighbor)
+library(ggrepel)
+library(UCell)
+library(grid)
+library(gridExtra)
+library(flextable)
+library(circlize)
+library(pheatmap)
+set.seed(1234)
+```
+
+Load 10x data
+```{r}
+scR40.data <- Read10X(data.dir = "/Volumes/MYG_5TB/Pvr/Raw/scR40/filtered_feature_bc_matrix")
+scR43.data <- Read10X(data.dir = "/Volumes/MYG_5TB/Pvr/Raw/scR43/filtered_feature_bc_matrix")
+scR44.data <- Read10X(data.dir = "/Volumes/MYG_5TB/Pvr/Raw/scR44/filtered_feature_bc_matrix")
+scR46.data <- Read10X(data.dir = "/Volumes/MYG_5TB/Pvr/Raw/scR46/filtered_feature_bc_matrix")
+scR47.data <- Read10X(data.dir = "/Volumes/MYG_5TB/Pvr/Raw/scR47/filtered_feature_bc_matrix")
+scR48.data <- Read10X(data.dir = "/Volumes/MYG_5TB/Pvr/Raw/scR48/filtered_feature_bc_matrix")
+scR49.data <- Read10X(data.dir = "/Volumes/MYG_5TB/Pvr/Raw/scR49/filtered_feature_bc_matrix")
+scR50.data <- Read10X(data.dir = "/Volumes/MYG_5TB/Pvr/Raw/scR50/filtered_feature_bc_matrix")
+scR51.data <- Read10X(data.dir = "/Volumes/MYG_5TB/Pvr/Raw/scR51/filtered_feature_bc_matrix")
+scR52.data <- Read10X(data.dir = "/Volumes/MYG_5TB/Pvr/Raw/scR52/filtered_feature_bc_matrix")
+```
+
+Create Seurat object
+```{r include=FALSE}
+scR40 <- CreateSeuratObject(counts = scR40.data, project = "day14_sn1", min.cells = 3, min.features = 200)
+scR43 <- CreateSeuratObject(counts = scR43.data, project = "con_sn1", min.cells = 3, min.features = 200)
+scR44 <- CreateSeuratObject(counts = scR44.data, project = "day14_sc", min.cells = 3, min.features = 200)
+scR46 <- CreateSeuratObject(counts = scR46.data, project = "con_sc", min.cells = 3, min.features = 200)
+scR47 <- CreateSeuratObject(counts = scR47.data, project = "day14_sn2", min.cells = 3, min.features = 200)
+scR48 <- CreateSeuratObject(counts = scR48.data, project = "hr4_sn1", min.cells = 3, min.features = 200)
+scR49 <- CreateSeuratObject(counts = scR49.data, project = "hr4_sn2", min.cells = 3, min.features = 200)
+scR50 <- CreateSeuratObject(counts = scR50.data, project = "con_sn2", min.cells = 3, min.features = 200)
+scR51 <- CreateSeuratObject(counts = scR51.data, project = "con_sn3", min.cells = 3, min.features = 200)
+scR52 <- CreateSeuratObject(counts = scR52.data, project = "hr4_sc", min.cells = 3, min.features = 200)
+```
+Add metadata
+```{r include=FALSE}
+scR40@meta.data$id <- "20-223" 
+scR43@meta.data$id <- "20-253C" 
+scR44@meta.data$id <- "20-220" 
+scR46@meta.data$id <- "20-253C" 
+scR47@meta.data$id <- "20-251" 
+scR48@meta.data$id <- "20-266" 
+scR49@meta.data$id <- "20-267" 
+scR50@meta.data$id <- "20-268C1" 
+scR51@meta.data$id <- "20-268C2" 
+scR52@meta.data$id <- "20-266"
+
+scR40@meta.data$rab_code <- "RB01" 
+scR43@meta.data$rab_code <- "RB03C" 
+scR44@meta.data$rab_code <- "RB01" 
+scR46@meta.data$rab_code <- "RB03C"
+scR47@meta.data$rab_code <- "RB04" 
+scR48@meta.data$rab_code <- "RB05" 
+scR49@meta.data$rab_code <- "RB06" 
+scR50@meta.data$rab_code <- "RB07" 
+scR51@meta.data$rab_code <- "RB08" 
+scR52@meta.data$rab_code <- "RB05"
+
+scR40@meta.data$run <- "Nuclei" 
+scR43@meta.data$run <- "Nuclei" 
+scR44@meta.data$run <- "Cells" 
+scR46@meta.data$run <- "Cells" 
+scR47@meta.data$run <- "Nuclei" 
+scR48@meta.data$run <- "Nuclei" 
+scR49@meta.data$run <- "Nuclei" 
+scR50@meta.data$run <- "Nuclei" 
+scR51@meta.data$run <- "Nuclei" 
+scR52@meta.data$run <- "Cells"
+```
+
+#############################################################################################
+```{r}
+#scR40 <- NormalizeData(scR40)
+#scR40 <- FindVariableFeatures(scR40, selection.method = "vst", nfeatures = 2000)
+#scR40 <- ScaleData(scR40)
+#scR40 <- RunPCA(scR40)
+#scR40 <- FindNeighbors(scR40, dims = 1:30)
+#scR40 <- FindClusters(scR40, resolution = 0.6)
+#scR40 <- RunUMAP(scR40, dims = 1:30)
+```
+#############################################################################################
+
+Merge datasets and remove individual files
+```{r}
+pvr_sn <- merge(scR40, y = c(scR43,scR47,scR48,scR49,scR50,scR51), add.cell.ids = c("scR40", "scR43","scR47","scR48","scR49","scR50","scR51"), project = "pvr_sn")
+pvr_sc <- merge(scR44, y = c(scR46,scR52), add.cell.ids = c("scR44","scR46","scR52"), project = "pvr_sc")
+rm(scR40.data, scR43.data, scR44.data,scR46.data, scR47.data, scR48.data,
+   scR49.data,scR50.data,scR51.data,scR52.data,scR40, 
+   scR43, scR44, scR46,scR47,scR48,scR49,scR50,scR51,scR52)
+```
+
+Find doublets.
+```{r}
+sce <- as.SingleCellExperiment(pvr_sn)
+sce <- scDblFinder(sce, samples="orig.ident")
+pvr_sn@meta.data$doublet <- plyr::mapvalues(x = rownames(pvr_sn@meta.data), 
+                                           from = rownames(colData(sce)), to = 
+                                           as.character(sce$scDblFinder.class))
+pvr_sn@meta.data$doublet <- factor(pvr_sn@meta.data$doublet, levels = c("singlet","doublet"))
+pvr_sn@meta.data$doublet_score <- plyr::mapvalues(x = rownames(pvr_sn@meta.data), 
+                                                 from = rownames(colData(sce)), to = sce$scDblFinder.score)
+pvr_sn@meta.data$doublet_score<-as.numeric(pvr_sn@meta.data$doublet_score)
+
+sce <- as.SingleCellExperiment(pvr_sc)
+sce <- scDblFinder(sce, samples="orig.ident")
+pvr_sc@meta.data$doublet <- plyr::mapvalues(x = rownames(pvr_sc@meta.data), 
+                                            from = rownames(colData(sce)), to = 
+                                              as.character(sce$scDblFinder.class))
+pvr_sc@meta.data$doublet <- factor(pvr_sc@meta.data$doublet, levels = c("singlet","doublet"))
+pvr_sc@meta.data$doublet_score <- plyr::mapvalues(x = rownames(pvr_sc@meta.data), 
+                                                  from = rownames(colData(sce)), to = sce$scDblFinder.score)
+pvr_sc@meta.data$doublet_score<-as.numeric(pvr_sc@meta.data$doublet_score)
+
+rm(sce)
+```
+
+```{r}
+old<- c("day14_sn1","con_sn1","day14_sc","con_sc", "day14_sn2", 
+        "hr4_sn1", "hr4_sn2", "con_sn2", "con_sn3","hr4_sc")
+new<- c("Day14","Control","Day14", "Control", "Day14", 
+        "Hr4", "Hr4", "Control", "Control","Hr4")
+new2<- c("Day14_sn","Con_sn","Day14_sc", "Con_sc", "Day14_sn", 
+        "hr4_sn", "hr4_sn", "Con_sn", "Con_sn","hr4_sc")
+
+pvr_sn@meta.data$treatment <- plyr::mapvalues(x = pvr_sn@meta.data$orig.ident, from = old, to = new)
+pvr_sn@meta.data$treatment2 <- plyr::mapvalues(x = pvr_sn@meta.data$orig.ident, from = old, to = new2)
+
+pvr_sc@meta.data$treatment <- plyr::mapvalues(x = pvr_sc@meta.data$orig.ident, from = old, to = new)
+pvr_sc@meta.data$treatment2 <- plyr::mapvalues(x = pvr_sc@meta.data$orig.ident, from = old, to = new2)
+
+rm (old, new, new2)
+```
+
+The mitocondrial genes are not very well annotated for the rabbit genome. Find mitochondrial genes
+```{r}
+ah <- AnnotationHub()
+
+ahDb <- query(ah,pattern = c("Oryctolagus Cuniculus", "EnsDb"), ignore.case = TRUE)
+id <- ahDb %>%  mcols() %>%  rownames() %>%  tail(n = 1)
+edb <- ah[[id]]
+annotations <- genes(edb,return.type = "data.frame")  
+annotations <- annotations %>%  dplyr::select(gene_id, gene_name, gene_biotype, seq_name, description, entrezid)
+mt <- annotations %>%  dplyr::filter(seq_name == "MT") %>%  dplyr::pull(gene_name)
+mt<-mt[mt != ""]
+
+pvr_sc$percent.mt <- PercentageFeatureSet(object = pvr_sc, features = mt)
+pvr_sn$percent.mt <- PercentageFeatureSet(object = pvr_sn, features = mt)
+
+rm (mt, ah, ahDb, id, edb, annotations)
+```
+
+Add cell cycle score
+```{r}
+s.genes <- cc.genes$s.genes
+g2m.genes <- cc.genes$g2m.genes
+pvr_sc <- CellCycleScoring(pvr_sc, s.features = s.genes, g2m.features = g2m.genes, set.ident = TRUE)
+pvr_sn <- CellCycleScoring(pvr_sn, s.features = s.genes, g2m.features = g2m.genes, set.ident = TRUE)
+rm (g2m.genes, s.genes)
+```
+
+Add number of genes per UMI for each cell to metadata
+```{r}
+pvr_sc@meta.data$log10GenesPerUMI <- log10(pvr_sc@meta.data$nFeature_RNA)/log10(pvr_sc@meta.data$nCount_RNA)
+pvr_sn@meta.data$log10GenesPerUMI <- log10(pvr_sn@meta.data$nFeature_RNA)/log10(pvr_sn@meta.data$nCount_RNA)
+```
+
+Scatter plot to show QC metrics
+```{r}
+FeatureScatter(pvr_sn, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+FeatureScatter(pvr_sc, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+```
+
+Violin plot to show QC metrics
+```{r}
+a <- VlnPlot(pvr_sn, features = c("nFeature_RNA", "nCount_RNA"), group.by = "orig.ident", ncol = 2)
+b <- VlnPlot(pvr_sn, features = c("nFeature_RNA", "nCount_RNA"), group.by = "orig.ident", ncol = 2, pt.size=0)
+plot_grid( a, b, ncol=1)
+
+a <- VlnPlot(pvr_sc, features = c("nFeature_RNA", "nCount_RNA"), group.by = "orig.ident", ncol = 2)
+b <- VlnPlot(pvr_sc, features = c("nFeature_RNA", "nCount_RNA"), group.by = "orig.ident", ncol = 2, pt.size=0)
+plot_grid( a, b, ncol=1)
+
+rm(a,b)
+```
+
+Boxplot to show QC
+```{r}
+pvr_sc@meta.data %>%
+  ggplot(aes(x=orig.ident, y=(nFeature_RNA), fill=orig.ident)) + 
+  geom_boxplot() + theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+  theme(plot.title = element_text(hjust=0.5, face="bold")) +
+  ggtitle("Single Cell")
+pvr_sc@meta.data %>%
+  ggplot(aes(x=orig.ident, y=(nCount_RNA), fill=orig.ident)) + 
+  geom_boxplot() + theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+  theme(plot.title = element_text(hjust=0.5, face="bold")) +
+  ggtitle("Single Cell")
+
+pvr_sn@meta.data %>%
+  ggplot(aes(x=orig.ident, y=(nFeature_RNA), fill=orig.ident)) + 
+  geom_boxplot() + theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+  theme(plot.title = element_text(hjust=0.5, face="bold")) +
+  ggtitle("Single Nuclei")
+pvr_sn@meta.data %>%
+  ggplot(aes(x=orig.ident, y=(nCount_RNA), fill=orig.ident)) + 
+  geom_boxplot() + theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+  theme(plot.title = element_text(hjust=0.5, face="bold")) +
+  ggtitle("Single Nuclei")
+```
+
+Correlation between genes and UMI
+```{r}
+pvr_sc@meta.data %>%
+  ggplot(aes(x=nCount_RNA, y=nFeature_RNA, color=percent.mt)) + 
+  geom_point() + scale_colour_gradient(low = "gray90", high = "red") +
+  stat_smooth(method=lm) + scale_x_log10() + scale_y_log10() + 
+  theme_classic() + facet_wrap(~orig.ident) + 
+  theme(plot.title = element_text(hjust=0.5, face="bold")) +
+  ggtitle("Single Cell")
+
+pvr_sn@meta.data %>%
+  ggplot(aes(x=nCount_RNA, y=nFeature_RNA, color=percent.mt)) + 
+  geom_point() + scale_colour_gradient(low = "gray90", high = "red") +
+  stat_smooth(method=lm) + scale_x_log10() + scale_y_log10() + 
+  theme_classic() + facet_wrap(~orig.ident) +
+  theme(plot.title = element_text(hjust=0.5, face="bold")) +
+  ggtitle("Single Nuclei")
+```
+
+Visualizing the genes detected per UMI and percent.mt
+```{r}
+pvr_sc@meta.data %>% 
+  ggplot(aes(color=orig.ident, x=log10GenesPerUMI, fill= orig.ident)) + ggtitle("Single Cell log10GenesPerUMI") +
+  geom_density(alpha = 0.2) + theme_classic() +  ylab("Cell density") +  geom_vline(xintercept = 0.75) + 
+  theme(plot.title = element_text(hjust=0.5, face="bold"))
+pvr_sc@meta.data %>% 
+  ggplot(aes(color=orig.ident, x=percent.mt, fill= orig.ident)) + ggtitle("Single Cell percent.mt") +
+  geom_density(alpha = 0.2) + theme_classic() +  ylab("Cell density") +  geom_vline(xintercept = 25) +
+  theme(plot.title = element_text(hjust=0.5, face="bold"))
+pvr_sc@meta.data %>% 
+  ggplot(aes(color=orig.ident, x=nCount_RNA, fill= orig.ident)) + ggtitle("Single Cell nCount_RNA") +
+  geom_density(alpha = 0.2) + theme_classic() +  ylab("Cell density") +  geom_vline(xintercept = 900) +
+  theme(plot.title = element_text(hjust=0.5, face="bold"))
+
+pvr_sn@meta.data %>% 
+  ggplot(aes(color=orig.ident, x=log10GenesPerUMI, fill= orig.ident)) + ggtitle("Single Nuclei log10GenesPerUMI") +
+  geom_density(alpha = 0.2) + theme_classic() +  ylab("Cell density") +  geom_vline(xintercept = c(0.75, 0.8)) +
+  theme(plot.title = element_text(hjust=0.5, face="bold"))
+pvr_sn@meta.data %>% 
+  ggplot(aes(color=orig.ident, x=percent.mt, fill= orig.ident)) + ggtitle("Single Nuclei percent.mt") +
+  geom_density(alpha = 0.2) + theme_classic() +  ylab("Cell density") +  geom_vline(xintercept = c(2,25)) +
+  theme(plot.title = element_text(hjust=0.5, face="bold"))
+pvr_sc@meta.data %>% 
+  ggplot(aes(color=orig.ident, x=nCount_RNA, fill= orig.ident)) + ggtitle("Single Nuclei nCount_RNA") +
+  geom_density(alpha = 0.2) + theme_classic() +  ylab("Cell density") + 
+  theme(plot.title = element_text(hjust=0.5, face="bold"))
+```
+Note:
+  Will not subset based on log10GenesPerUMI because may be biased against some cell types.
+
+Filter out low quality cells !!!when redoing, try plotting doublet and singlets before subsetting.
+```{r}
+#keep
+values <- vector()
+values <- append(values, as.numeric(length(pvr_sn@meta.data$percent.mt[pvr_sn@meta.data$percent.mt < 2]))) 
+values <- append(values, as.numeric(length(pvr_sn@meta.data$nCount_RNA[pvr_sn@meta.data$nCount_RNA >= 500])))
+values <- append(values, as.numeric(length(pvr_sn@meta.data$nCount_RNA[pvr_sn@meta.data$nCount_RNA <= 50000])))
+values <- append(values, sum(values[2], values[3]))
+values <- append(values, as.numeric(length(pvr_sn@meta.data$doublet[pvr_sn@meta.data$doublet == "singlet"])))
+labels <- c("percent.mt<2", "nCount_RNA>=500", "nCount_RNA<=50000", "nCount_RNA>=500 & <=50000", "singlet")
+pvr_sn_keep <- data.frame(labels, values)
+colnames(pvr_sn_keep) <- c("QC_parameters", "Number_of_Nuclei")
+pvr_sn_keep
+
+values <- vector()
+values <- append(values, as.numeric(length(pvr_sc@meta.data$percent.mt[pvr_sc@meta.data$percent.mt < 25]))) 
+values <- append(values, as.numeric(length(pvr_sc@meta.data$nCount_RNA[pvr_sc@meta.data$nCount_RNA >= 500])))
+values <- append(values, as.numeric(length(pvr_sc@meta.data$nCount_RNA[pvr_sc@meta.data$nCount_RNA <= 50000])))
+values <- append(values, sum(values[2], values[3]))
+values <- append(values, as.numeric(length(pvr_sc@meta.data$doublet[pvr_sc@meta.data$doublet == "singlet"])))
+labels <- c("percent.mt<25", "nCount_RNA>=500", "nCount_RNA<=50000", "nCount_RNA>=500 & <=50000", "singlet")
+pvr_sc_keep <- data.frame(labels, values)
+colnames(pvr_sc_keep) <- c("QC_parameters", "Number_of_Cells")
+pvr_sc_keep
+
+#remove
+values <- vector()
+values <- append(values, as.numeric(length(pvr_sn@meta.data$percent.mt[pvr_sn@meta.data$percent.mt > 2]))) 
+values <- append(values, as.numeric(length(pvr_sn@meta.data$nCount_RNA[pvr_sn@meta.data$nCount_RNA < 500])))
+values <- append(values, as.numeric(length(pvr_sn@meta.data$nCount_RNA[pvr_sn@meta.data$nCount_RNA > 50000])))
+values <- append(values, sum(values[2], values[3]))
+values <- append(values, as.numeric(length(pvr_sn@meta.data$doublet[pvr_sn@meta.data$doublet == "doublet"])))
+labels <- c("percent.mt>2", "nCount_RNA<500", "nCount_RNA>50000", "nCount_RNA<500 & >50000", "doublet")
+pvr_sn_remove <- data.frame(labels, values)
+colnames(pvr_sn_remove) <- c("QC_parameters", "Number_of_Nuclei")
+pvr_sn_remove
+
+values <- vector()
+values <- append(values, as.numeric(length(pvr_sc@meta.data$percent.mt[pvr_sc@meta.data$percent.mt > 25]))) 
+values <- append(values, as.numeric(length(pvr_sc@meta.data$nCount_RNA[pvr_sc@meta.data$nCount_RNA < 500])))
+values <- append(values, as.numeric(length(pvr_sc@meta.data$nCount_RNA[pvr_sc@meta.data$nCount_RNA > 50000])))
+values <- append(values, sum(values[2], values[3]))
+values <- append(values, as.numeric(length(pvr_sc@meta.data$doublet[pvr_sc@meta.data$doublet == "doublet"])))
+labels <- c("percent.mt>2", "nCount_RNA<500", "nCount_RNA>50000", "nCount_RNA<500 & >50000", "doublet")
+pvr_sc_remove <- data.frame(labels, values)
+colnames(pvr_sc_remove) <- c("QC_parameters", "Number_of_Cells")
+pvr_sc_remove
+```
+
+```{r}
+rm(values, labels, pvr_sn_remove, pvr_sc_remove, pvr_sn_keep, pvr_sc_keep)
+```
+
+```{r}
+pvr_sc <- subset(x = pvr_sc, subset= (percent.mt < 25))
+pvr_sn <- subset(x = pvr_sn, subset= (percent.mt < 2))
+
+pvr_sc <- subset(x = pvr_sc, subset= (nCount_RNA >= 500))
+pvr_sn <- subset(x = pvr_sn, subset= (nCount_RNA >= 500))
+
+pvr_sc <- subset(x = pvr_sc, subset= (nCount_RNA <= 50000))
+pvr_sn <- subset(x = pvr_sn, subset= (nCount_RNA <= 50000))
+
+pvr_sc <- subset(x = pvr_sc, subset= (doublet == "singlet"))
+pvr_sn <- subset(x = pvr_sn, subset= (doublet == "singlet"))
+```
+Notes:
+  pvr_sc 6805 -> 6265 -> 6265 -> 5802 -> 5630
+  pvr_sn 30640 -> 21582 -> 21582 -> 21516 -> 20455
+
+Figure 1F Generate: Boxplot to show QC.
+```{r}
+colors2 <- c("#4484DF", "#DF9144")
+
+pvr_comb <- merge(pvr_sc[, sample(colnames(pvr_sc), size =5630, replace=F)],
+                              y = pvr_sn[, sample(colnames(pvr_sn), size =5630, replace=F)], 
+                              project = "pvr_comb.downsampled")
+
+
+pvr_comb@meta.data %>%
+  ggplot(aes(x=run, y=nCount_RNA, fill=run)) + 
+  geom_boxplot(outlier.shape= NA) + #outier.shape = NA hides outliers so raw data pts can be plotted
+  geom_jitter(color="black", size=0.4, alpha=0.1) +
+  scale_fill_manual(values= colors2) + 
+  theme_classic() + theme(legend.position= "none")
+
+#(axis.ticks = element_blank(), axis.text = element_blank(),
+#                                axis.line = element_blank(), title= element_blank())
+
+pvr_comb@meta.data %>%
+  ggplot(aes(x=run, y=nFeature_RNA, fill=run)) + 
+  geom_boxplot(outlier.shape= NA) + #outier.shape = NA hides outliers so raw data pts can be plotted
+  geom_jitter(color="black", size=0.4, alpha=0.1) +
+  scale_fill_manual(values= colors2) + 
+  theme_classic() + theme(legend.position= "none")
+
+#(axis.ticks = element_blank(), axis.text = element_blank(),
+#                                axis.line = element_blank(), title= element_blank())
+
+```
+
+Merge sc and sn datasets. !!! remove if using downsampled comb !!!
+```{r}
+#pvr_comb <- merge(pvr_sn, y = c(pvr_sc), project = "pvr_comb")
+```
+
+Bar graph to show UMI and genes for each sample
+```{r}
+comb <- pvr_sn@meta.data
+comb$rows <- rownames(comb)
+order<- c("con_sn1","con_sn2","con_sn3",
+          "hr4_sn1", "hr4_sn2",
+          "day14_sn1","day14_sn2")
+comb$orig.ident <- factor(comb$orig.ident, levels = order)
+comb <-comb[order(comb$orig.ident),]
+
+ggbarplot(comb, x = "rows", y = "nFeature_RNA", color = "orig.ident", fill = "orig.ident",sort.val = "desc",sort.by.groups = TRUE) +  scale_y_continuous(expand = c(0, 0),) + theme(axis.title.x=element_blank(),axis.text.x=element_blank(),axis.ticks.x=element_blank())
+ggbarplot(comb, x = "rows", y = "nCount_RNA", color = "orig.ident", fill = "orig.ident",sort.val = "desc",sort.by.groups = TRUE) + scale_y_continuous(expand = c(0, 0), trans= 'log10') + theme(axis.title.x=element_blank(),axis.text.x=element_blank(),axis.ticks.x=element_blank())
+rm (comb)
+
+comb <- pvr_sc@meta.data
+comb$rows <- rownames(comb)
+order<- c("con_sc", "hr4_sc", "day14_sc")
+comb$orig.ident <- factor(comb$orig.ident, levels = order)
+comb <-comb[order(comb$orig.ident),]
+
+ggbarplot(comb, x = "rows", y = "nFeature_RNA", color = "orig.ident", fill = "orig.ident",sort.val = "none",sort.by.groups = TRUE) +  scale_y_continuous(expand = c(0, 0),) + theme(axis.title.x=element_blank(),axis.text.x=element_blank(),axis.ticks.x=element_blank())
+ggbarplot(comb, x = "rows", y = "nCount_RNA", color = "orig.ident", fill = "orig.ident",sort.val = "none",sort.by.groups = TRUE) + scale_y_continuous(expand = c(0, 0)) + theme(axis.title.x=element_blank(),axis.text.x=element_blank(),axis.ticks.x=element_blank())
+rm (comb)
+
+comb <- pvr_comb@meta.data
+comb$rows <- rownames(comb)
+order<- c("con_sn1","con_sn2","con_sn3",
+          "hr4_sn1", "hr4_sn2", "day14_sn1","day14_sn2",
+          "con_sc", "hr4_sc", "day14_sc")
+comb$orig.ident <- factor(comb$orig.ident, levels = order)
+comb <-comb[order(comb$orig.ident),]
+
+ggbarplot(comb, x = "rows", y = "nFeature_RNA", color = "orig.ident", fill = "orig.ident",sort.val = "none",sort.by.groups = TRUE) +  scale_y_continuous(expand = c(0, 0),) + theme(axis.title.x=element_blank(),axis.text.x=element_blank(),axis.ticks.x=element_blank())
+ggbarplot(comb, x = "rows", y = "nCount_RNA", color = "orig.ident", fill = "orig.ident",sort.val = "none",sort.by.groups = TRUE) + scale_y_continuous(expand = c(0, 0)) + theme(axis.title.x=element_blank(),axis.text.x=element_blank(),axis.ticks.x=element_blank())
+rm (comb)
+```
+
+
+Mean UMI and genes in the dataset
+```{r}
+table (pvr_sc@meta.data$orig.ident)
+aggregate(pvr_sc@meta.data$nCount_RNA, list(pvr_sc@meta.data$orig.ident), mean)
+aggregate(pvr_sc@meta.data$nFeature_RNA, list(pvr_sc@meta.data$orig.ident), mean)
+
+table (pvr_sn@meta.data$orig.ident)
+aggregate(pvr_sn@meta.data$nCount_RNA, list(pvr_sn@meta.data$orig.ident), mean)
+aggregate(pvr_sn@meta.data$nFeature_RNA, list(pvr_sn@meta.data$orig.ident), mean)
+
+table (pvr_comb@meta.data$orig.ident)
+aggregate(pvr_comb@meta.data$nCount_RNA, list(pvr_comb@meta.data$orig.ident), mean)
+aggregate(pvr_comb@meta.data$nFeature_RNA, list(pvr_comb@meta.data$orig.ident), mean)
+```
+
+Normalize and scale data.
+```{r message=FALSE, warning=FALSE, include=FALSE, results="hide"}
+pvr_sn<- NormalizeData(pvr_sn) %>%
+         FindVariableFeatures(selection.method = "vst", nfeatures = 2000) %>%
+         ScaleData()
+
+pvr_sc<- NormalizeData(pvr_sc) %>%
+         FindVariableFeatures(selection.method = "vst", nfeatures = 2000) %>%
+         ScaleData()
+
+#can findvariablefeatures, but use common vargenes to run PCA
+pvr_comb<- NormalizeData(pvr_comb) %>%
+           FindVariableFeatures(selection.method = "vst", nfeatures = 2000) %>%
+           ScaleData()
+```
+
+RunPCA and look at elbow plot to identify significant PCs
+```{r message=FALSE, warning=FALSE, include=FALSE}
+pvr_sn <- RunPCA(pvr_sn, npcs = 100, features = VariableFeatures(object = pvr_sn))
+pvr_sc <- RunPCA(pvr_sc, npcs = 100, features = VariableFeatures(object = pvr_sc))
+
+#can findvariablefeatures, but use common vargenes to run PCA
+vargenes_common <- intersect(pvr_sn@assays$RNA@var.features, pvr_sc@assays$RNA@var.features)
+  pvr_comb <- RunPCA(pvr_comb, npcs = 100, features = vargenes_common)
+```
+
+```{r}
+ElbowPlot(pvr_sn, ndims = 100)
+ElbowPlot(pvr_sc, ndims = 100)
+ElbowPlot(pvr_comb, ndims = 100)
+```
+
+Determine if variation in the data is due to cell cycle scoring
+```{r}
+DimPlot(pvr_sc,reduction = "pca",group.by= "Phase",split.by = "Phase")
+DimPlot(pvr_sn,reduction = "pca",group.by= "Phase",split.by = "Phase")
+DimPlot(pvr_comb,reduction = "pca",group.by= "Phase",split.by = "Phase")
+```
+
+Cluster cells and run UMAP
+```{r include=FALSE}
+pvr_sn <- FindNeighbors(pvr_sn, dims = 1:100) %>%
+          FindClusters(resolution = 0.6) %>%
+          RunUMAP(dims = 1:25)
+
+pvr_sc <- FindNeighbors(pvr_sc, dims = 1:100) %>%
+          FindClusters(resolution = 0.6) %>% 
+          RunUMAP(dims = 1:25)
+
+pvr_comb <- FindNeighbors(pvr_comb, dims = 1:100) %>%
+          FindClusters(resolution = 0.6) %>%
+          RunUMAP(dims = 1:25)
+```
+
+```{r}
+DimPlot(pvr_sn, group.by = "orig.ident")
+DimPlot(pvr_sc, group.by = "orig.ident")
+DimPlot(pvr_comb, group.by = "run")
+```
+
+
+``` {r}
+saveRDS(pvr_sn, file="/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_sn.rds")
+saveRDS(pvr_sc, file="/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_sc.rds")
+saveRDS(pvr_comb, file="/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_comb.rds")
+
+pvr_sn <- readRDS(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_sn.rds")
+pvr_sc <- readRDS(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_sc.rds")
+pvr_comb <- readRDS(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_comb.rds")
+```
+
+```{r}
+#rm(pvr_sn, pvr_sc, pvr_comb)
+```
+
+Integrate the data.
+```{r}
+pvr_sn.int <- RunHarmony(pvr_sn, group.by.vars = "orig.ident")
+pvr_sc.int <- RunHarmony(pvr_sc, group.by.vars = "orig.ident")
+#pvr_comb.int <- RunHarmony(pvr_comb, group.by.vars = "run")
+pvr_comb.int <- RunHarmony(pvr_comb, group.by.vars = c("run", "orig.ident"))
+```
+
+```{r}
+pvr_sn.int <- RunUMAP(pvr_sn.int, dims = 1:10,reduction = "harmony") %>% 
+  FindNeighbors(dims = 1:10, reduction = "harmony") %>% 
+  FindClusters(resolution = 0.7)
+pvr_sn.int[[sprintf("ClusterNames_%.1f_%dPC", 0.7, 10)]] <- Idents(object = pvr_sn.int)
+#pvr_sn.int@meta.data$integrated_snn_res.0.7 <- NULL
+
+pvr_sc.int <- RunUMAP(pvr_sc.int, dims = 1:10,reduction = "harmony") %>% 
+  FindNeighbors(dims = 1:10, reduction = "harmony") %>% 
+  FindClusters(resolution = 0.7)
+pvr_sc.int[[sprintf("ClusterNames_%.1f_%dPC", 0.7, 10)]] <- Idents(object = pvr_sc.int)
+#pvr_sc.int@meta.data$integrated_snn_res.0.7 <- NULL
+
+pvr_comb.int <- RunUMAP(pvr_comb.int, dims = 1:10,reduction = "harmony") %>% 
+  FindNeighbors(dims = 1:10, reduction = "harmony") %>% 
+  FindClusters(resolution = 1.5)
+pvr_comb.int[[sprintf("ClusterNames_%.1f_%dPC", 1.5, 10)]] <- Idents(object = pvr_comb.int)
+#pvr_comb.int@meta.data$integrated_snn_res.0.7 <- NULL
+
+DimPlot(pvr_sn.int, group.by = "seurat_clusters", label=T)
+DimPlot(pvr_sc.int, group.by = "seurat_clusters", label=T)
+DimPlot(pvr_comb.int, group.by = "seurat_clusters", label=T)
+DimPlot(pvr_comb.int, group.by = "run", label=T)
+DimPlot(pvr_comb.int, split.by = "run", group.by = "treatment", label=T)
+DimPlot(pvr_comb.int_test, split.by = "run", group.by = "treatment", label=T)
+```
+
+
+
+``` {r}
+saveRDS(pvr_sn.int, file="/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_sn_int.rds")
+saveRDS(pvr_sc.int, file="/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_sc_int.rds")
+saveRDS(pvr_comb.int, file="/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_comb_int.rds")
+
+pvr_sn.int<- readRDS(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_sn_int.rds")
+pvr_sc.int <- readRDS(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_sc_int.rds")
+pvr_comb.int <- readRDS(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_comb_int.rds")
+```
+
+Plot marker genes.
+``` {r}
+genes_AC <- c("TFAP2B", "CBLN4", "PROX1", "ISL1", "PCP4", "ELAVL3", "CALB2", "ELAVL4", "GABRA1", "GAD1", "GAD2", "SLC32A1", "CDKN1C", "SLC6A1", "SLC6A5", "SLC6A9", "CALB1", "NEFL", "NEFM", "EBF3", "THY1", "RBFOX3")
+genes_glycAC <- c("SLC6A5", "SLC6A9")
+genes_GABAAC <- c("GAD1", "GAD2", "SLC32A1", "CDKN1C", "SLC6A1")
+genes_ngngAC <- c("EBF3")
+genes_BC <- c("VSX2", "BHLHE23", "CABP5")
+genes_OFFconeBC <- c("GRIK1", "KLHDC8A")
+genes_ONconeBC <- c("GRM6", "SCGN")
+genes_rodBC <- c("SEBOX", "PRKCA")
+genes_RGC <- c("ISL2", "POU4F1", "POU4F2", "POU4F3", "RBPMS")
+genes_HC <- c("LHX1", "ONECUT1", "ONECUT2")
+genes_MG <- c("ABCA8A", "ALDH1A1", "KCNJ10", "AQP4", "GLUL", "PRDX6", "VIM", "APOE", "HES1", "NOTCH1", "CLU")
+genes_rod <- c("GUCA1B", "NRL", "RHO", "ROM1")
+genes_cone <- c("ARR3", "CNGA3", "OPN1MW", "OPN1SW", "THRB")
+genes_microg <- c("CSF2RB", "CSF2RB2", "CX3CR1", "MPEG1", "PTPRC", "TMEM119", "CD34", "APOE")
+genes_astro <- c("PAX2", "PDGFRA", "S100B", "GFAP", "IGF2", "SLC1A3")
+genes_neuroRPC <- c("ATOH7", "BTG2", "FOXN4", "GADD45A", "GADD45G", "NEUROG2", "NEUROD1")
+genes_olig <- c("MBP", "MOG", "OLIG1", "OLIG2")
+genes_peri <- c("ACTA2", "KCNJ8", "PDGFRB")
+genes_primaryRPC <- c("CCND2", "FGF15", "VSX2", "HOPX", "CAR2", "LHX2", "RLBP1")
+genes_reti <- c("HBA-A1", "HBA-A2", "HBB-BS", "HBB-BT")
+genes_RPE <- c("LRAT", "PMEL", "RPE65", "TYR")
+genes_VE <- c("CDH5", "PECAM1", "TEK", "TIE1", "CD34")
+##########################################################################################
+#nuclei
+DefaultAssay(pvr_sn.int) <- 'RNA'
+FeaturePlot(pvr_sn.int, features= genes_AC[1:11], min.cutoff="q9", ncol = 3)      # AC
+FeaturePlot(pvr_sn.int, features= genes_AC[12:22], min.cutoff="q9")               # AC
+FeaturePlot(pvr_sn.int, features= genes_glycAC, min.cutoff="q9")                  #glycinergic SC
+FeaturePlot(pvr_sn.int, features= genes_GABAAC, min.cutoff="q9")                  #GABAergic AC
+FeaturePlot(pvr_sn.int, features= genes_ngngAC, min.cutoff="q9")                  #non-GABAergic, non-Glycinergic AC
+FeaturePlot(pvr_sn.int, features= genes_BC, min.cutoff="q9")                      #BC
+FeaturePlot(pvr_sn.int, features= genes_OFFconeBC, min.cutoff="q9")               #OFF cone BC
+FeaturePlot(pvr_sn.int, features= genes_ONconeBC, min.cutoff="q9")                #ON cone BC
+FeaturePlot(pvr_sn.int, features= genes_rodBC, min.cutoff="q9")                   #rod BC
+FeaturePlot(pvr_sn.int, features= genes_RGC, min.cutoff="q9")                     #RGC
+FeaturePlot(pvr_sn.int, features= genes_HC, min.cutoff="q9")                      #HC
+FeaturePlot(pvr_sn.int, features= genes_MG, min.cutoff="q9", ncol=3)              #MG
+FeaturePlot(pvr_sn.int, features= genes_rod, min.cutoff="q9")                     #rod
+FeaturePlot(pvr_sn.int, features= genes_cone, min.cutoff="q9")                    #cone
+FeaturePlot(pvr_sn.int, features= genes_microg, min.cutoff="q9")                  #microglia
+FeaturePlot(pvr_sn.int, features= genes_astro, min.cutoff="q9")                   #astrocyte
+FeaturePlot(pvr_sn.int, features= genes_neuroRPC, min.cutoff="q9")                #neurogenic RPC
+FeaturePlot(pvr_sn.int, features= genes_olig)                    #oligodendrocytes
+FeaturePlot(pvr_sn.int, features= genes_peri, min.cutoff="q9")                    #pericytes
+FeaturePlot(pvr_sn.int, features= genes_primaryRPC, min.cutoff="q9")              #primary RPCs
+#FeaturePlot(pvr_sn.int, features= genes_reti, min.cutoff="q9")                    #reticulocytes
+FeaturePlot(pvr_sn.int, features= genes_RPE, min.cutoff="q9")                     #RPE
+FeaturePlot(pvr_sn.int, features= genes_VE, min.cutoff="q9")                      #V/E cell
+
+##########################################################################################
+#cells
+DefaultAssay(pvr_sc.int) <- 'RNA'
+FeaturePlot(pvr_sc.int, features= genes_AC[1:11], min.cutoff="q9", ncol = 3)      # AC
+FeaturePlot(pvr_sc.int, features= genes_AC[12:22], min.cutoff="q9")               # AC
+#FeaturePlot(pvr_sc.int, features= genes_glycAC, min.cutoff="q9")                  #glycinergic AC
+#FeaturePlot(pvr_sc.int, features= genes_GABAAC, min.cutoff="q9")                  #GABAergic AC
+#FeaturePlot(pvr_sc.int, features= genes_ngngAC, min.cutoff="q9")                  #non-GABAergic, non-Glycinergic AC
+FeaturePlot(pvr_sc.int, features= genes_BC, min.cutoff="q9")                      #BC
+#FeaturePlot(pvr_sc.int, features= genes_OFFconeBC, min.cutoff="q9")               #OFF cone BC
+#FeaturePlot(pvr_sc.int, features= genes_ONconeBC, min.cutoff="q9")                #ON cone BC
+#FeaturePlot(pvr_sc.int, features= genes_rodBC, min.cutoff="q9")                   #rod BC
+FeaturePlot(pvr_sc.int, features= genes_RGC, min.cutoff="q9", order= T)                     #RGC
+FeaturePlot(pvr_sc.int, features= genes_HC, min.cutoff="q9")                      #HC
+FeaturePlot(pvr_sc.int, features= genes_MG, min.cutoff="q9", ncol=3)              #MG
+FeaturePlot(pvr_sc.int, features= genes_rod, min.cutoff="q9")                     #rod
+FeaturePlot(pvr_sc.int, features= genes_cone, min.cutoff="q9")                    #cone
+FeaturePlot(pvr_sc.int, features= genes_microg, min.cutoff="q9")                  #microglia
+FeaturePlot(pvr_sc.int, features= genes_astro, min.cutoff="q9")                   #astrocyte
+#FeaturePlot(pvr_sc.int, features= genes_neuroRPC, min.cutoff="q9")                #neurogenic RPC
+FeaturePlot(pvr_sc.int, features= genes_olig, order= T)                    #oligodendrocytes
+#FeaturePlot(pvr_sc.int, features= genes_peri, min.cutoff="q9")                    #pericytes
+#FeaturePlot(pvr_sc.int, features= genes_primaryRPC, min.cutoff="q9")              #primary RPCs
+#FeaturePlot(pvr_sc.int, features= genes_reti, min.cutoff="q9")                    #reticulocytes
+#FeaturePlot(pvr_sc.int, features= genes_RPE, min.cutoff="q9")                     #RPE
+#FeaturePlot(pvr_sc.int, features= genes_VE, min.cutoff="q9")                      #V/E cell
+```
+Notes:
+  marker genes
+  nuc
+  AC: TFAP2B
+  BC: VSX2
+  RGC: RBPMS POU4F1
+  HC: ONECUT1
+  MG: GLUL CLU
+  Rod: NRL
+  Cone: ARR3
+  Microglia: PTPRC
+  Astro:PAX2
+  Olig:MOG
+
+Selecting marker genes for sc and sn to include in figures.
+``` {r}
+FeaturePlot(pvr_sn.int, features= c("RBPMS", "POU4F1"), order=T) 
+FeaturePlot(pvr_sc.int, features= c("RBPMS", "POU4F1"), order=T)
+
+FeaturePlot(pvr_sn.int, features= c("GLUL", "CLU"))
+FeaturePlot(pvr_sc.int, features= c("GLUL", "CLU"))
+```
+Notes:
+  try RBPMS?? for RGC.
+  chose CLU for MG.
+
+
+Clarify sn cluster.
+```{r}
+# hard to determine cluster 12 cell type
+x <- FindMarkers(pvr_sn.int, ident.1 = 12, only.pos= T, max.cells.per.ident = 500)
+FeaturePlot(pvr_sn.int, features= c("RBFOX1", "RBFOX2", "TFAP2A"),  ncol = 3) #results show cluster 12 is AC
+```
+
+Recluster sn.
+```{r}
+#label sn Oligodendrocytes
+temp <- subset(x = pvr_sn.int, subset= (seurat_clusters == "15"))
+plot <- FeaturePlot(temp, features= "MOG", order=T)
+select.cells <- WhichCells(temp, expression = MOG > 1)
+Idents(pvr_sn.int, cells = select.cells) <- '20'
+pvr_sn.int@meta.data$seurat_clusters <- pvr_sn.int@active.ident
+DimPlot(pvr_sn.int, group.by = "seurat_clusters", label=T)
+```
+
+Recluster sc.
+```{r}
+# label sc HC
+plot <- FeaturePlot(pvr_sc.int, features= "ONECUT1", order=T)
+select.cells <- CellSelector(plot = plot)
+Idents(pvr_sc.int, cells = select.cells) <- '16'
+pvr_sc.int@meta.data$seurat_clusters <- pvr_sc.int@active.ident
+DimPlot(pvr_sc.int, group.by = "seurat_clusters", label=T)
+DimPlot(pvr_sc.int, split.by = "treatment", label=T)
+
+#label sc Oligodendrocytes
+plot <- FeaturePlot(pvr_sc.int, features= "MOG", order=T)
+HoverLocator(plot = plot, information = FetchData(pvr_sc.int, vars = c("ident")))
+select.cells <- WhichCells(pvr_sc.int, expression = MOG > 0.31)
+Idents(pvr_sc.int, cells = select.cells) <- '18'
+pvr_sc.int@meta.data$seurat_clusters <- pvr_sc.int@active.ident
+DimPlot(pvr_sc.int, group.by = "seurat_clusters", label=T)
+
+#label sc RGC
+temp <- subset(x = pvr_sc.int, subset= (seurat_clusters == c("15", "11")))
+plot <- FeaturePlot(temp, features= "POU4F1", order=T)
+select.cells <- WhichCells(temp, expression = POU4F1 > 1)
+Idents(pvr_sc.int, cells = select.cells) <- '19'
+pvr_sc.int@meta.data$seurat_clusters <- pvr_sc.int@active.ident
+DimPlot(pvr_sc.int, group.by = "seurat_clusters", label=T)
+```
+
+Save final clusters.
+```{r}
+pvr_sc.int@meta.data$FinalClusterNumbers <- pvr_sc.int@meta.data$seurat_clusters
+pvr_sn.int@meta.data$FinalClusterNumbers <- pvr_sn.int@meta.data$seurat_clusters
+
+#rm(temp)
+pvr_sc.int@meta.data$ClusterNames_0.7_40PC <- NULL
+pvr_sc.int@meta.data$ClusterNames_0.7_20PC <- NULL
+pvr_sn.int@meta.data$ClusterNames_0.7_40PC <- NULL
+pvr_sn.int@meta.data$ClusterNames_0.7_20PC <- NULL
+```
+
+Assign cell types. !!!fill in correctly after viewing genes!!!
+``` {r}
+#find major cell types
+pvr_sn.int <- RenameIdents(pvr_sn.int, 
+                            `0`="Rod",
+                            `1`="Rod", 
+                            `11`="Rod",
+                            `5`="Cone",
+                            `3`="Bipolar",
+                            `14`="Bipolar", 
+                            `4`="Amacrine",
+                            `7`="Amacrine", 
+                            `8`="Amacrine", 
+                            `10`="Amacrine", 
+                            `12`="Amacrine",
+                            `16`="Amacrine",
+                            `18`="Amacrine", 
+                            `17`="Horizontal", 
+                            `6`="RGC", 
+                            `2`="Müller Glia",
+                            `9`="Müller Glia", 
+                            `15`="Müller Glia", 
+                            `13`="Microglia", 
+                            `20`="Oligodendrocytes",
+                            `19`="Astrocyte")
+
+
+levels(x= pvr_sn.int@active.ident) <- c("Rod", "Cone", "Bipolar", "Amacrine", "Horizontal", "RGC", "Müller Glia","Microglia", "Oligodendrocytes", "Astrocyte")
+pvr_sn.int[["Celltype"]] <- pvr_sn.int@active.ident
+#levels(x= pvr_sn.int) <- c("Rod", "Cone", "Bipolar", "Amacrine", "Horizontal", "RGC", "Müller Glia","Microglia", "Oligodendrocytes", "Astrocyte")
+#levels(x= pvr_sn.int@meta.data$Celltype) <- c("Rod", "Cone", "Bipolar", "Amacrine", "Horizontal", "RGC", "Müller Glia","Microglia", "Oligodendrocytes", "Astrocyte")
+
+####################################################################################################
+pvr_sc.int <- RenameIdents(pvr_sc.int, 
+                            `1`="Rod" ,
+                            `9`="Rod",
+                            `17`="Cone",
+                            `4`="Cone",
+                            `6`="Bipolar",
+                            `12`="Bipolar",
+                            `10`="Bipolar",
+                            `11`="Amacrine",
+                            `15`="Amacrine",
+                            `16`="Horizontal",
+                            `19`="RGC",
+                            `0`="Müller Glia",
+                            `2`="Müller Glia", 
+                            `3`="Müller Glia", 
+                            `5`="Müller Glia", 
+                            `7`="Müller Glia", 
+                            `13`="Müller Glia", 
+                            `14`="Müller Glia", 
+                            `8`="Microglia",
+                            `18`="Oligodendrocytes")
+
+levels(x= pvr_sc.int@active.ident) <- c("Rod", "Cone", "Bipolar", "Amacrine", "Horizontal", "RGC", "Müller Glia","Microglia", "Oligodendrocytes")
+pvr_sc.int[["Celltype"]] <- pvr_sc.int@active.ident
+#levels(x= pvr_sc.int) <- c("Rod", "Cone", "Bipolar", "Amacrine", "Horizontal", "RGC", "Müller Glia","Microglia", "Oligodendrocytes")
+#levels(x= pvr_sc.int@meta.data$Celltype) <- c("Rod", "Cone", "Bipolar", "Amacrine", "Horizontal", "RGC", "Müller Glia","Microglia", "Oligodendrocytes")
+
+
+```
+
+
+Plots for QC. (doublets, nCount_RNA >= 50,000)
+#########################################################################################
+```{r}
+DimPlot(pvr_sn.int, label=TRUE, repel=TRUE)
+DimPlot(pvr_sn.int,  split.by = "orig.ident",label=TRUE, repel=TRUE)
+
+DimPlot(pvr_sc.int, group.by = "cell_type", label=T, repel=T)
+DimPlot(pvr_sc.int, group.by = "cell_type")
+
+DimPlot(pvr_sn.int, group.by = "major_cell_type", label=T, repel=T)
+DimPlot(pvr_sc.int, group.by = "major_cell_type", label=T, repel=T)
+```
+
+```{r}
+pvr_sn.int[["nCount_50000"]] <- pvr_sn.int@meta.data$nCount_RNA >= 50000
+pvr_sc.int[["nCount_50000"]] <- pvr_sc.int@meta.data$nCount_RNA >= 50000
+
+FeaturePlot(pvr_sn.int, features= "nCount_50000")
+FeaturePlot(pvr_sc.int, features= "nCount_50000")
+
+DimPlot(pvr_sn.int, split.by= "nCount_50000", label=T) + ggtitle('Single Nuclei nCount>50,000') + theme(plot.title = element_text(hjust=0.5, face="bold"))
+DimPlot(pvr_sc.int, split.by= "nCount_50000", label=T) + ggtitle('Single Cell nCount>50,000') + theme(plot.title = element_text(hjust=0.5, face="bold"))
+
+DimPlot(pvr_sn.int, group.by= "nCount_50000", split.by= "orig.ident") + ggtitle('Single Nuclei nCount>50,000') + theme(plot.title = element_text(hjust=0.5, face="bold"))
+DimPlot(pvr_sc.int, group.by= "nCount_50000", split.by= "orig.ident") + ggtitle('Single Cell nCount>50,000') + theme(plot.title = element_text(hjust=0.5, face="bold"))
+```
+
+```{r}
+DimPlot(pvr_sn.int, split.by= "doublet") + ggtitle('Single Nuclei Doublets') + theme(plot.title = element_text(hjust=0.5, face="bold"))
+DimPlot(pvr_sc.int, split.by= "doublet") + ggtitle('Single Cell Doublets') + theme(plot.title = element_text(hjust=0.5, face="bold"))
+
+DimPlot(pvr_sn.int, group.by= "doublet", split.by= "orig.ident") + ggtitle('Single Nuclei Doublets') + theme(plot.title = element_text(hjust=0.5, face="bold"))
+DimPlot(pvr_sc.int, group.by= "doublet", split.by= "orig.ident") + ggtitle('Single Cell Doublets') + theme(plot.title = element_text(hjust=0.5, face="bold"))
+```
+
+```{r}
+DimPlot(pvr_comb.int, split.by= "doublet") + ggtitle('Single Nuclei Doublets') + theme(plot.title = element_text(hjust=0.5, face="bold"))
+```
+#########################################################################################
+
+Figure 1A, 1B: UMAP of sc and sn.
+```{r}
+colors10 <- scales::viridis_pal(begin= .12, end = 0.87, option="turbo")(10)
+show_col(colors10)
+
+colors10 <- c("#4668DFFF",
+"#BCF534FF",
+"#1BD0D5FF",
+"#3D9EFEFF",
+"#A0A0A0",
+"#F36416FF",
+"#EBD339FF",
+"#FEA331FF",
+"#D43305FF",
+"#2DF09DFF")
+show_col(colors10)
+
+#normal plot
+DimPlot(pvr_sn.int, group.by = "Celltype", label=F, repel=T, cols= colors10) +
+        theme_classic() + theme(axis.ticks = element_blank(), axis.text = element_blank(),
+        axis.line = element_blank(), title= element_blank())
+
+DimPlot(pvr_sc.int, group.by = "Celltype", label=F, repel=T, cols= colors10[1:9],
+        order= rev(c("Rod", "Cone", "Bipolar", "Amacrine", "Horizontal", "RGC", 
+                     "Müller Glia", "Microglia", "Oligodendrocytes"))) +
+        theme_classic() + theme(axis.ticks = element_blank(), axis.text = element_blank(),
+        axis.line = element_blank(), title= element_blank())
+
+#no label, no legend
+DimPlot(pvr_sn.int, group.by = "Celltype", label=F, repel=T, cols= colors10) +
+        theme_classic() + theme(axis.ticks = element_blank(), axis.text = element_blank(),
+        axis.line = element_blank(), title= element_blank(), legend.position = "none")
+
+DimPlot(pvr_sc.int, group.by = "Celltype", label=F, repel=T, cols= colors10[1:9],
+        order= rev(c("Rod", "Cone", "Bipolar", "Amacrine", "Horizontal", "RGC", 
+                     "Müller Glia", "Microglia", "Oligodendrocytes"))) +
+        theme_classic() + theme(axis.ticks = element_blank(), axis.text = element_blank(),
+        axis.line = element_blank(), title= element_blank(),legend.position = "none")
+```
+
+Figure 1D: Dotplot of marker genes.
+```{r}
+genes <- c("PAX2", "MOG", "PTPRC", "HES1", "RBPMS", "ONECUT1", "TFAP2A", "VSX2", "ARR3", "RHO")
+
+DotPlot(pvr_sn.int, features= rev(genes), scale.by= "size", scale.max=80) + scale_colour_viridis(end = 0.87, option="H") + scale_y_discrete(limits=rev) + RotatedAxis() + labs(x= "Marker Genes", y= "Cell Type")
+
+DotPlot(pvr_sc.int, features= rev(genes), scale.by= "size", scale.max=80) + scale_colour_viridis(end = 0.87, option="H") + scale_y_discrete(limits=rev) + RotatedAxis() + labs(x= "Marker Genes", y= "Cell Type")
+```
+Notes: to reverse vector use rev(vector)
+
+Supplemental Figure 1. Marker gene feature plots.
+``` {r}
+FeaturePlot(pvr_sc.int, features =c("RHO", "ARR3", "VSX2", "TFAP2A", "ONECUT1", "RBPMS", "HES1", "PTPRC", "MOG"), ncol=3, order=T)
+FeaturePlot(pvr_sn.int, features = c("RHO", "ARR3", "VSX2", "TFAP2A", "ONECUT1", "RBPMS", "HES1", "PTPRC", "MOG", "PAX2"), ncol=3)
+
+FeaturePlot(pvr_sc.int, features ="RHO", ncol=3, order=T)
+FeaturePlot(pvr_sc.int, features ="RHO", ncol=3, order=T, min.cutoff = '4')
+FeaturePlot(pvr_sc.int, features ="HES1", ncol=3, order=T)
+FeaturePlot(pvr_sc.int, features ="HES1", ncol=3, order=T, min.cutoff = '1.75')
+
+FeaturePlot(pvr_sn.int, features ="RHO", ncol=3, order=T)
+FeaturePlot(pvr_sn.int, features ="RHO", ncol=3, order=T, min.cutoff = '4.5')
+```
+
+Add celltype metadata to sn, sc, comb.
+```{r}
+pvr_sn@meta.data$Celltype <- pvr_sn.int@meta.data$Celltype
+pvr_sc@meta.data$Celltype <- pvr_sc.int@meta.data$Celltype
+
+# does this code randomly sample the same cells if reran since set.seed =1234?
+pvr_comb2<- merge(pvr_sc[, sample(colnames(pvr_sc), size =5630, replace=F)],
+                              y = pvr_sn[, sample(colnames(pvr_sn), size =5630, replace=F)], 
+                              project = "pvr_comb.downsampled")
+testcells <- colnames(pvr_comb2)
+ogcells <- colnames(pvr_comb)
+setequal(testcells, ogcells)
+  #Answer: YES it randomly samples same cells.
+
+saveRDS(pvr_comb2, file="/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_comb2.rds")
+
+# comb
+
+# does pvr_comb2 have same cells as pvr_comb.int?
+testcells <- colnames(pvr_comb2)
+ogcells <- colnames(pvr_comb.int)
+setequal(testcells, ogcells)
+  #Answer: YES it has the same cells in the same order.
+
+pvr_comb.int@meta.data$Celltype <- pvr_comb2@meta.data$Celltype
+
+saveRDS(pvr_comb.int, file="/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_comb.int.rds")
+```
+
+```{r}
+DimPlot(pvr_sn.int, group.by = "Celltype", split.by= "treatment", label=T, repel=T)
+DimPlot(pvr_sc.int, group.by = "Celltype", split.by= "treatment", label=T, repel=T)
+DimPlot(pvr_comb.int, group.by = "Celltype", split.by= "treatment", label=T, repel=T)
+```
+
+Plot for Cornelia.
+```{r}
+pvr_sc.int_D14 <- subset(x = pvr_sc.int, subset= (treatment == "Day14"))
+DimPlot(pvr_sc.int_D14, group.by = "Celltype", label=T, repel=T)
+
+pvr_sc.int_D14<- NormalizeData(pvr_sc.int_D14) %>%
+         FindVariableFeatures(selection.method = "vst", nfeatures = 2000) %>%
+         ScaleData()
+pvr_sc.int_D14 <- RunPCA(pvr_sc.int_D14, npcs = 100, features = VariableFeatures(object = pvr_sc.int_D14))
+ElbowPlot(pvr_sc.int_D14)
+pvr_sc.int_D14 <- FindNeighbors(pvr_sc.int_D14, dims = 1:100) %>%
+          FindClusters(resolution = 0.6) %>%
+          RunUMAP(dims = 1:25)
+
+DimPlot(pvr_sc.int_D14, group.by = "Celltype", label=F) + 
+    ggtitle("Single Cell Day 14 Cell Types") + theme(plot.title = element_text(hjust=0.5, face="bold"))
+DimPlot(pvr_sc.int_D14, split.by = "Celltype", group.by = "Celltype", label=F) + 
+    ggtitle("Single Cell Day 14 Cell Types") + theme(plot.title = element_text(hjust=0.5, face="bold"))
+
+#save
+# saveRDS(pvr_sc.int_D14, file="/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_sc_int_D14.rds")
+# pvr_sc.int_D14 <- readRDS(file="/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_sc_int_D14.rds")
+```
+
+Figure 2A: combined UMAP split by all, sc, and sn
+```{r}
+#colors10 <- hue_pal()(10)
+#colors10 <- scales::viridis_pal(begin= .12, end = 0.87, option="turbo")(10)
+#show_col(colors10)
+colors10 <- c("#4668DFFF",
+"#BCF534FF",
+"#1BD0D5FF",
+"#3D9EFEFF",
+"#F36416FF",
+"#3E378FFF",
+"#EBD339FF",
+"#FEA331FF",
+"#D43305FF",
+"#2DF09DFF")
+show_col(colors10)
+
+order <- c("Rod", "Cone", "Bipolar", "Amacrine", "Horizontal", "RGC", "Müller Glia","Microglia", "Oligodendrocytes", "Astrocyte")
+
+#plot all, cells, nuclei together
+a <- DimPlot(pvr_comb.int ,group.by = "Celltype", label=F, order= rev(order), cols= colors10, pt.size = 0.4) +
+        theme_classic() + theme(axis.ticks = element_blank(), axis.text = element_blank(),
+        axis.line = element_blank(), title= element_blank(), legend.position = "none")
+
+
+b <- DimPlot(pvr_comb.int, cells= colnames(subset(pvr_comb.int, subset = (run == "Cells"))),
+        group.by = "Celltype", label=F, order= rev(order), cols= colors10[1:9], pt.size = 0.4) +
+        theme_classic() + theme(axis.ticks = element_blank(), axis.text = element_blank(),
+        axis.line = element_blank(), title= element_blank(), legend.position = "none")
+
+  
+c <- DimPlot(pvr_comb.int, cells= colnames(subset(pvr_comb.int, subset = (run == "Nuclei"))),
+        group.by = "Celltype", label=F, order= rev(order), cols= colors10, pt.size = 0.4) +
+        theme_classic() + theme(axis.ticks = element_blank(), axis.text = element_blank(),
+        axis.line = element_blank(), title= element_blank(), legend.position = "none")
+
+
+l <- DimPlot(pvr_comb.int, cells= colnames(subset(pvr_comb.int, subset = (run == "Nuclei"))),
+        group.by = "Celltype", label=F, order= rev(order), cols= colors10, pt.size = 0.4) +
+        theme_classic() + theme(axis.ticks = element_blank(), axis.text = element_blank(),
+        axis.line = element_blank(), title= element_blank())
+l <- cowplot::get_legend(l)
+plot_grid(a,b,c,l, nrow=1)
+```
+#Note: use hue_pal()(10) for ggplot default
+       use viridis_pal()(10) for viridis
+
+Supplemental Figure: Bar plot of cell type proportions.
+``` {r}
+dittoBarPlot(pvr_comb.int, "Celltype", group.by= "run", scale="count", main=NULL)
+
+order_barplot_10 <- as.integer(c(10, 4, 3, 1, 5, 9, 7, 6, 8, 2))
+treatment2_reorder2 <- as.integer(c(1, 5, 3, 2, 6, 4))
+#colors10 <- hue_pal()(10)
+colors10 <- scales::viridis_pal(begin= .12, end = 0.87, option="turbo")(10)
+
+#NORMAL PLOT
+dittoBarPlot(pvr_comb.int, "Celltype", group.by= "run", var.labels.reorder= order_barplot_10, 
+             color.panel= colors10, main=NULL)
+dittoBarPlot(pvr_comb.int, "Celltype", group.by= "treatment2", var.labels.reorder= order_barplot_10,
+             color.panel= colors10, x.reorder= treatment2_reorder2, main=NULL)
+
+#NPLOT WITH NO LABEL
+dittoBarPlot(pvr_comb.int, "Celltype", group.by= "run", var.labels.reorder= order_barplot_10, 
+             color.panel= colors10, main=NULL) + theme(axis.ticks = element_blank(), 
+             axis.text = element_blank(), axis.line = element_blank(), title= element_blank(),
+             legend.position = "none")
+dittoBarPlot(pvr_comb.int, "Celltype", group.by= "treatment2", var.labels.reorder= order_barplot_10, 
+             color.panel= colors10, x.reorder= treatment2_reorder2, main=NULL) + 
+             theme(axis.ticks = element_blank(), axis.text = element_blank(), 
+             axis.line = element_blank(), title= element_blank(), legend.position = "none")
+```
+Notes: scale= "count" if you want to plot cell counts in dittobarplot.
+
+Add celltype2 metadata to sn, sc, comb. (celltype + sc/sn)
+``` {r}
+pvr_sc@meta.data$Celltype2 <- paste(pvr_sc@meta.data$Celltype, "_sc")
+pvr_sn@meta.data$Celltype2 <- paste(pvr_sn@meta.data$Celltype, "_sn")
+
+# does this code randomly sample the same cells if reran since set.seed =1234?
+pvr_comb2<- merge(pvr_sc[, sample(colnames(pvr_sc), size =5630, replace=F)],
+                              y = pvr_sn[, sample(colnames(pvr_sn), size =5630, replace=F)], 
+                              project = "pvr_comb.downsampled")
+testcells <- colnames(pvr_comb2)
+ogcells <- colnames(pvr_comb)
+setequal(testcells, ogcells)
+  #Answer: YES it randomly samples same cells.
+
+saveRDS(pvr_comb2, file="/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_comb2.rds")
+
+# comb
+
+# does pvr_comb2 have same cells as pvr_comb.int?
+testcells <- colnames(pvr_comb2)
+ogcells <- colnames(pvr_comb.int)
+setequal(testcells, ogcells)
+  #Answer: YES it has the same cells in the same order.
+
+pvr_comb.int@meta.data$Celltype2 <- pvr_comb2@meta.data$Celltype2
+
+saveRDS(pvr_comb.int, file="/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_comb.int.rds")
+```
+
+Figure 3C: Cell type proportion for each run.
+```{r}
+colors <- c("#4484DF", "#DF9144")
+seurat <- readRDS(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_comb_int.rds")
+
+seurat@meta.data$Celltype <- factor(seurat@meta.data$Celltype, ordered = T, levels= c("Rod", "Cone", "Bipolar", "Amacrine", "Horizontal", "RGC", "Müller Glia", "Microglia", "Oligodendrocytes", "Astrocyte"))
+df <- seurat@meta.data
+
+counts <- group_by(df, run, Celltype)	%>% summarise(count = n()) %>% mutate(clust_total = sum(count)) %>% mutate(clust_prop = (count / clust_total)*100) 
+ggplot(counts, aes(Celltype, clust_prop, fill = run)) + 
+    geom_col(position = position_dodge2(preserve = "single")) + 
+    labs(y = "Cell Percentage") + 
+    theme_classic() +  scale_fill_manual(values = colors) + RotatedAxis()
+rm (counts,df)
+write_csv(counts, file="/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/counts_celltype_run.csv")
+```
+
+Supplemental Table 1
+```{r}
+color_count <- scales::col_numeric(palette = c("transparent", "red"), domain = c(0, 5630))
+color_perc <- scales::col_numeric(palette = c("transparent", "red"), domain = c(0, 100))
+
+seurat <- readRDS(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_comb_int.rds")
+seurat@meta.data$Celltype <- factor(seurat@meta.data$Celltype, ordered = T, levels= c("Rod", "Cone", "Bipolar", "Amacrine", "Horizontal", "RGC", "Müller Glia", "Microglia", "Oligodendrocytes", "Astrocyte"))
+df <- seurat@meta.data
+counts <- group_by(df, run, Celltype)	%>% summarise(count = n()) %>% mutate(clust_total = sum(count)) %>% mutate(clust_prop = (count / clust_total)*100)
+
+tab <- data.frame(counts$run, counts$Celltype, counts$count, counts$clust_prop)
+colnames(tab) <- c("Sample Type", "Cell Type", "Count", "Percentage")
+tab$Percentage <- round(tab$Percentage, 2)
+
+plot <- flextable(tab)
+theme_box(plot) %>% merge_v(j= "Sample Type") %>% bg(bg = color_count, j = "Count", part = "body") %>%
+  bg(bg = color_perc, j = "Percentage", part = "body") %>% align(align = "center", part = "all")
+```
+
+Supplemental Table 2.
+```{r}
+seurat <- readRDS(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_comb_int.rds")
+seurat@meta.data$Celltype <- factor(seurat@meta.data$Celltype, ordered = T, levels= c("Rod", "Cone", "Bipolar", "Amacrine", "Horizontal", "RGC", "Müller Glia", "Microglia", "Oligodendrocytes", "Astrocyte"))
+df <- seurat@meta.data
+counts <- group_by(df, run, Celltype)	%>% summarise(count = n()) %>% mutate(clust_total = sum(count)) %>% mutate(clust_prop = (count / clust_total)*100)
+sum <- sum(counts$count[counts$run == "Cells" & counts$Celltype == c("Bipolar","Amacrine","Horizontal", "Müller Glia")])
+counts$INL[counts$Celltype == "Bipolar" | counts$Celltype == "Amacrine" | counts$Celltype == "Horizontal" | counts$Celltype == "Müller Glia" ] <- "Yes"
+counts$INL_total[counts$run == "Cells" & counts$INL == "Yes"] <- sum(counts$count[counts$run == "Cells" & counts$INL == "Yes"], na.rm= T)
+counts$INL_total[counts$run == "Nuclei" & counts$INL == "Yes"] <- sum(counts$count[counts$run == "Nuclei" & counts$INL == "Yes"], na.rm= T)
+counts$INL_perc <- (counts$count / counts$INL_total)*100
+
+tab <- data.frame(a = c("Bipolar", "Amacrine", "Horizontal", "Müller Glia"),
+                b = c(41, 32, 1.5, 24),
+                c = c(17.8, 6.3, 1.5, 74.3),
+                d = c(20.2, 50.7, 2.9, 26.1))
+colnames(tab) <- c("Cell Type", "Previously Reported Percentage", "Cell Percentage", "Nuclei Percentage")
+color_count <- scales::col_numeric(palette = c("transparent", "red"), domain = c(0, 100))
+
+plot <- flextable(tab)
+theme_box(plot) %>% bg(bg = color_count, j = c("Previously Reported Percentage", "Cell Percentage", "Nuclei Percentage"), part = "body") %>% align(align = "center", part = "all")
+```
+
+Supplemental Table 3
+``` {r}
+tab <- data.frame(a = c("Rod", "Cone"),
+                b = c(94.3, 5.7),
+                c = c(63.8, 36.2),
+                d = c(93.7, 6.3))
+colnames(tab) <- c("Cell Type", "Previously Reported Percentage", "Cell Percentage", "Nuclei Percentage")
+color_count <- scales::col_numeric(palette = c("transparent", "red"), domain = c(0, 100))
+
+plot <- flextable(tab)
+theme_box(plot) %>% bg(bg = color_count, j = c("Previously Reported Percentage", "Cell Percentage", "Nuclei Percentage"), part = "body") %>% align(align = "center", part = "all")
+```
+
+Make barplot of cell types by run.
+```{r}
+seurat <- readRDS(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_comb_int.rds")
+seurat@meta.data$Celltype <- gsub(" ", ".", seurat@meta.data$Celltype)
+Idents(seurat) <- 'Celltype'
+celltypes <- as.character(unique(seurat@meta.data$Celltype))
+
+for (i in celltypes) {
+                      x<- FindMarkers(seurat, ident.1 = as.character(i), only.pos = T, 
+                      max.cells.per.ident = 2000)
+                      x <- x[order(-x$avg_log2FC),] 
+                      x <- rownames(x)[1:200]
+                      seurat <- AddModuleScore_UCell(seurat, features = list(x), name = as.character(i))
+                      }
+
+table <- data.frame()
+
+i <- "Amacrine"
+df<-as.data.frame(aggregate(seurat@meta.data$signature_1Amacrine, 
+                            list(seurat@meta.data$Celltype,seurat@meta.data$run), mean))
+
+colnames(df) <- c("Celltype", "run", "meanUCell")
+df$denominator[df$run == "Cells"] <- df$meanUCell[df$Celltype == i & df$run == "Cells"]
+df$denominator[df$run == "Nuclei"] <- df$meanUCell[df$Celltype == i & df$run == "Nuclei"]
+df$proportion <- df$meanUCell/df$denominator
+df$selectedCelltype <- i
+table <- rbind(table, df)
+
+i <- "Müller.Glia"
+df<-as.data.frame(aggregate(seurat@meta.data$signature_1Müller.Glia, 
+                            list(seurat@meta.data$Celltype,seurat@meta.data$run), mean))
+
+colnames(df) <- c("Celltype", "run", "meanUCell")
+df$denominator[df$run == "Cells"] <- df$meanUCell[df$Celltype == i & df$run == "Cells"]
+df$denominator[df$run == "Nuclei"] <- df$meanUCell[df$Celltype == i & df$run == "Nuclei"]
+df$proportion <- df$meanUCell/df$denominator
+df$selectedCelltype <- i
+table <- rbind(table, df)
+
+i <- "Microglia"
+df<-as.data.frame(aggregate(seurat@meta.data$signature_1Microglia, 
+                            list(seurat@meta.data$Celltype,seurat@meta.data$run), mean))
+
+colnames(df) <- c("Celltype", "run", "meanUCell")
+df$denominator[df$run == "Cells"] <- df$meanUCell[df$Celltype == i & df$run == "Cells"]
+df$denominator[df$run == "Nuclei"] <- df$meanUCell[df$Celltype == i & df$run == "Nuclei"]
+df$proportion <- df$meanUCell/df$denominator
+df$selectedCelltype <- i
+table <- rbind(table, df)
+
+i <- "Rod"
+df<-as.data.frame(aggregate(seurat@meta.data$signature_1Rod, 
+                            list(seurat@meta.data$Celltype,seurat@meta.data$run), mean))
+
+colnames(df) <- c("Celltype", "run", "meanUCell")
+df$denominator[df$run == "Cells"] <- df$meanUCell[df$Celltype == i & df$run == "Cells"]
+df$denominator[df$run == "Nuclei"] <- df$meanUCell[df$Celltype == i & df$run == "Nuclei"]
+df$proportion <- df$meanUCell/df$denominator
+df$selectedCelltype <- i
+table <- rbind(table, df)
+
+i <- "Bipolar"
+df<-as.data.frame(aggregate(seurat@meta.data$signature_1Bipolar, 
+                            list(seurat@meta.data$Celltype,seurat@meta.data$run), mean))
+
+colnames(df) <- c("Celltype", "run", "meanUCell")
+df$denominator[df$run == "Cells"] <- df$meanUCell[df$Celltype == i & df$run == "Cells"]
+df$denominator[df$run == "Nuclei"] <- df$meanUCell[df$Celltype == i & df$run == "Nuclei"]
+df$proportion <- df$meanUCell/df$denominator
+df$selectedCelltype <- i
+table <- rbind(table, df)
+
+i <- "Cone"
+df<-as.data.frame(aggregate(seurat@meta.data$signature_1Cone, 
+                            list(seurat@meta.data$Celltype,seurat@meta.data$run), mean))
+
+colnames(df) <- c("Celltype", "run", "meanUCell")
+df$denominator[df$run == "Cells"] <- df$meanUCell[df$Celltype == i & df$run == "Cells"]
+df$denominator[df$run == "Nuclei"] <- df$meanUCell[df$Celltype == i & df$run == "Nuclei"]
+df$proportion <- df$meanUCell/df$denominator
+df$selectedCelltype <- i
+table <- rbind(table, df)
+
+i <- "Horizontal"
+df<-as.data.frame(aggregate(seurat@meta.data$signature_1Horizontal, 
+                            list(seurat@meta.data$Celltype,seurat@meta.data$run), mean))
+
+colnames(df) <- c("Celltype", "run", "meanUCell")
+df$denominator[df$run == "Cells"] <- df$meanUCell[df$Celltype == i & df$run == "Cells"]
+df$denominator[df$run == "Nuclei"] <- df$meanUCell[df$Celltype == i & df$run == "Nuclei"]
+df$proportion <- df$meanUCell/df$denominator
+df$selectedCelltype <- i
+table <- rbind(table, df)
+
+i <- "RGC"
+df<-as.data.frame(aggregate(seurat@meta.data$signature_1RGC, 
+                            list(seurat@meta.data$Celltype,seurat@meta.data$run), mean))
+
+colnames(df) <- c("Celltype", "run", "meanUCell")
+df$denominator[df$run == "Cells"] <- df$meanUCell[df$Celltype == i & df$run == "Cells"]
+df$denominator[df$run == "Nuclei"] <- df$meanUCell[df$Celltype == i & df$run == "Nuclei"]
+df$proportion <- df$meanUCell/df$denominator
+df$selectedCelltype <- i
+table <- rbind(table, df)
+
+i <- "Oligodendrocytes"
+df<-as.data.frame(aggregate(seurat@meta.data$signature_1Oligodendrocytes, 
+                            list(seurat@meta.data$Celltype,seurat@meta.data$run), mean))
+
+colnames(df) <- c("Celltype", "run", "meanUCell")
+df$denominator[df$run == "Cells"] <- df$meanUCell[df$Celltype == i & df$run == "Cells"]
+df$denominator[df$run == "Nuclei"] <- df$meanUCell[df$Celltype == i & df$run == "Nuclei"]
+df$proportion <- df$meanUCell/df$denominator
+df$selectedCelltype <- i
+table <- rbind(table, df)
+
+i <- "Astrocyte"
+df<-as.data.frame(aggregate(seurat@meta.data$signature_1Astrocyte, 
+                            list(seurat@meta.data$Celltype,seurat@meta.data$run), mean))
+
+colnames(df) <- c("Celltype", "run", "meanUCell")
+df$denominator[df$run == "Cells"] <- df$meanUCell[df$Celltype == i & df$run == "Cells"]
+df$denominator[df$run == "Nuclei"] <- df$meanUCell[df$Celltype == i & df$run == "Nuclei"]
+df$proportion <- df$meanUCell/df$denominator
+df$selectedCelltype <- i
+table <- rbind(table, df)
+
+
+#PLOT
+colors2 <- c("#4484DF", "#DF9144")
+
+x <- subset(table, subset = (selectedCelltype == "Amacrine"))
+ggplot(x, aes(Celltype, proportion, fill= run)) +
+  geom_col(position = position_dodge2(preserve = "single")) + 
+  labs(y = "UCell Score proportion") + ggtitle("Amacrine") +
+  theme_classic() +  scale_fill_manual(values = colors2) + RotatedAxis()
+
+x <- subset(table, subset = (selectedCelltype == "Müller.Glia"))
+ggplot(x, aes(Celltype, proportion, fill= run)) +
+  geom_col(position = position_dodge2(preserve = "single")) + 
+  labs(y = "UCell Score proportion") + ggtitle("Müller.Glia") +
+  theme_classic() +  scale_fill_manual(values = colors2) + RotatedAxis()
+
+x <- subset(table, subset = (selectedCelltype == "Microglia"))
+ggplot(x, aes(Celltype, proportion, fill= run)) +
+  geom_col(position = position_dodge2(preserve = "single")) + 
+  labs(y = "UCell Score proportion") +  ggtitle("Microglia") +
+  theme_classic() +  scale_fill_manual(values = colors2) + RotatedAxis()
+
+x <- subset(table, subset = (selectedCelltype == "Rod"))
+ggplot(x, aes(Celltype, proportion, fill= run)) +
+  geom_col(position = position_dodge2(preserve = "single")) + 
+  labs(y = "UCell Score proportion") + ggtitle("Rod") +
+  theme_classic() +  scale_fill_manual(values = colors2) + RotatedAxis()
+
+x <- subset(table, subset = (selectedCelltype == "Bipolar"))
+ggplot(x, aes(Celltype, proportion, fill= run)) +
+  geom_col(position = position_dodge2(preserve = "single")) + 
+  labs(y = "UCell Score proportion") + ggtitle("Bipolar") +
+  theme_classic() +  scale_fill_manual(values = colors2) + RotatedAxis()
+
+x <- subset(table, subset = (selectedCelltype == "Cone"))
+ggplot(x, aes(Celltype, proportion, fill= run)) +
+  geom_col(position = position_dodge2(preserve = "single")) + 
+  labs(y = "UCell Score proportion") +  ggtitle("Cone") +
+  theme_classic() +  scale_fill_manual(values = colors2) + RotatedAxis()
+
+x <- subset(table, subset = (selectedCelltype == "Horizontal"))
+ggplot(x, aes(Celltype, proportion, fill= run)) +
+  geom_col(position = position_dodge2(preserve = "single")) + 
+  labs(y = "UCell Score proportion") +  ggtitle("Horizontal") +
+  theme_classic() +  scale_fill_manual(values = colors2) + RotatedAxis()
+
+x <- subset(table, subset = (selectedCelltype == "RGC"))
+ggplot(x, aes(Celltype, proportion, fill= run)) +
+  geom_col(position = position_dodge2(preserve = "single")) + 
+  labs(y = "UCell Score proportion") +  ggtitle("RGC") +
+  theme_classic() +  scale_fill_manual(values = colors2) + RotatedAxis()
+
+x <- subset(table, subset = (selectedCelltype == "Oligodendrocytes"))
+ggplot(x, aes(Celltype, proportion, fill= run)) +
+  geom_col(position = position_dodge2(preserve = "single")) + 
+  labs(y = "UCell Score proportion") + ggtitle("Oligodendrocytes") +
+  theme_classic() +  scale_fill_manual(values = colors2) + RotatedAxis()
+
+x <- subset(table, subset = (selectedCelltype == "Astrocyte"))
+ggplot(x, aes(Celltype, proportion, fill= run)) +
+  geom_col(position = position_dodge2(preserve = "single")) + 
+  labs(y = "UCell Score proportion") + ggtitle("Astrocyte") +
+  theme_classic() +  scale_fill_manual(values = colors2) + RotatedAxis()
+```
+
+Figure 3A: Hexagonal heatmap.
+```{r}
+genes <- pvr_comb.int@assays[["RNA"]]@counts@Dimnames[[1]]
+
+PrctCellExpringGene <- function(object, genes, group.by = "all"){
+    if(group.by == "all"){
+        prct = unlist(lapply(genes,calc_helper, object=object))
+        result = data.frame(Markers = genes, Cell_proportion = prct)
+        return(result)
+    }
+
+    else{        
+        list = SplitObject(object, group.by)
+        factors = names(list)
+
+        results = lapply(list, PrctCellExpringGene, genes=genes)
+        for(i in 1:length(factors)){
+        results[[i]]$Feature = factors[i]
+        }
+        combined = do.call("rbind", results)
+        return(combined)
+    }
+}
+
+calc_helper <- function(object,genes){
+    counts = object[['RNA']]@counts
+    ncells = ncol(counts)
+    if(genes %in% row.names(counts)){
+    sum(counts[genes,]>0)/ncells
+    }else{return(NA)}
+}
+
+#downsample to same # of cells and nuclei
+sc.subsampled <- subset(pvr_comb.int, subset= (run == "Cells"))
+sn.subsampled <- subset(pvr_comb.int, subset= (run == "Nuclei"))
+
+sc.prop <- PrctCellExpringGene(sc.subsampled, genes= genes, group.by= "all")
+sn.prop <- PrctCellExpringGene(sn.subsampled, genes= genes, group.by= "all")
+sc.prop <- read_csv(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/sc.prop.csv")
+sn.prop <- read_csv(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/sn.prop.csv")
+
+setequal(sc.prop[, 1], sn.prop[,1])     #are columns with gene names equal?
+all.prop <- data.frame(sc.prop[,1], sc.prop[,2], sn.prop[,2])    #create combined dataframe
+colnames(all.prop) <- c("Genes", "Cells", "Nuclei")
+rownames(all.prop) <- all.prop[,1]
+
+a <- ggplot(all.prop, aes(Nuclei, Cells)) 
+my_breaks <- c(1, 10, 100, 1000, 10000)
+
+#plot with linear regression line
+a + geom_hex(bins= 80) + geom_smooth(method="lm", level= 0.95) + stat_regline_equation(label.x=0.6, label.y=1.1) + stat_cor(aes(label=..rr.label..), label.x=.6, label.y=1.05) +   scale_fill_viridis_c(name= "No. of Genes", trans= "log", breaks = my_breaks, labels= my_breaks, option="H", begin= .08, end = 0.87) +xlab("Proportion of Nuclei") + ylab("Proportion of Cells") + theme_classic()
+
+#plot with diagonal line
+a + geom_hex(bins= 80) + scale_fill_viridis_c(name= "No. of Genes", trans= "log", breaks = my_breaks, labels= my_breaks, option="H", begin= .08, end = 0.87) +xlab("Proportion of Nuclei") + ylab("Proportion of Cells") + theme_classic() + geom_abline(slope=1, intercept=0)
+
+#plot with no line
+a + geom_hex(bins= 80) + scale_fill_viridis_c(name= "No. of Genes", trans= "log", breaks = my_breaks, labels= my_breaks, option="H", begin= .08, end = 0.87) +xlab("Proportion of Nuclei") + ylab("Proportion of Cells") + theme_classic()      #no line
+```
+
+Split violin plots.
+```{r}
+library(rtracklayer)
+library(tidyverse)
+library(ggplot2)
+
+pvr  <- readRDS(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_comb.rds")
+
+# Obtain list of protein coding and lncRNA genes
+gtf <- rtracklayer::import('/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/OryCun2.gtf')
+gtf <- as.data.frame(gtf)
+cds <- gtf %>%  dplyr::filter(gene_biotype == "protein_coding") %>%  dplyr::pull(gene_id)
+lnc <- gtf %>%  dplyr::filter(gene_biotype == "lncRNA") %>%  dplyr::pull(gene_id)
+lnc <- intersect (rownames(pvr), lnc)
+cds <- intersect (rownames(pvr), cds)
+
+# Obtain list of transcription factor genes
+tf <- read.table("/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/OryCun2_TF.tsv", header = T)
+tf <- tf$Symbol
+tf <- unique(tf)
+tf <- intersect (rownames(pvr), tf)
+
+# Obtain list of mitochondrial genes (you have already done this)
+ah <- AnnotationHub()
+ahDb <- query(ah,pattern = c("Oryctolagus Cuniculus", "EnsDb"), ignore.case = TRUE)
+id <- ahDb %>%  mcols() %>%  rownames() %>%  tail(n = 1)
+edb <- ah[[id]]
+annotations <- genes(edb,return.type = "data.frame")  
+annotations <- annotations %>%  dplyr::select(gene_id, gene_name, gene_biotype, seq_name, description, entrezid)
+mt <- annotations %>%  dplyr::filter(seq_name == "MT") %>%  dplyr::pull(gene_name)
+mt<-mt[mt != ""]
+rm (ah, ahDb, id, edb, annotations)
+
+# Get percent feature sets
+pvr$percent.mt <- PercentageFeatureSet(object = pvr, features = mt)
+pvr$percent.cds <- PercentageFeatureSet(object = pvr, features = cds)
+pvr$percent.lnc <- PercentageFeatureSet(object = pvr, features = lnc)
+pvr$percent.tf <- PercentageFeatureSet(object = pvr, features = tf)
+
+# Plot split violin plot
+# It doesn't matter that it is grouped by doublets, 
+# we just want a single grouping of the cells/nuclei
+colors <-c(Cells ="#4484DF", Nuclei="#DF9144")
+
+VlnPlot(pvr, features = c("percent.cds"),split.by = "run", 
+        split.plot = T, group.by = "doublet", pt.size = 0) + 
+        scale_fill_manual(values = colors) + 
+        ylab("% Transcripts") + xlab("")+
+        ggtitle("Protein\n coding") +
+        theme(legend.position = "none", axis.text.x = element_blank(), 
+              axis.ticks.x = element_blank())
+
+VlnPlot(pvr, features = c("percent.mt"),split.by = "run", 
+        split.plot = T, group.by = "doublet", pt.size = 0) + 
+        scale_fill_manual(values = colors) + 
+        ylab("% Transcripts") + xlab("")+
+        ggtitle("Mitochondrial") + 
+        theme(legend.position = "none", axis.text.x = element_blank(), 
+              axis.ticks.x = element_blank())
+
+VlnPlot(pvr, features = c("percent.lnc"),split.by = "run", 
+        split.plot = T, group.by = "doublet", pt.size = 0) + 
+        scale_fill_manual(values = colors) + 
+        ylab("% Transcripts") + xlab("")+
+        ggtitle("lncRNA") + 
+        theme(legend.position = "none", axis.text.x = element_blank(), 
+              axis.ticks.x = element_blank())
+
+VlnPlot(pvr, features = c("percent.tf"),split.by = "run", 
+        split.plot = T, group.by = "doublet", pt.size = 0) + 
+        scale_fill_manual(values = colors) + 
+        ylab("% Transcripts") + xlab("")+
+        ggtitle("Transcription\n factors") + 
+        theme(legend.position = "none", axis.text.x = element_blank(), 
+              axis.ticks.x = element_blank())
+
+saveRDS(pvr, file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_comb.rds")
+
+# Density plot of samples in pseudotime
+    #NEEDED: change State & treatment colors
+pvr <- readRDS(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_mg_eq_alra_pseudotime.rds")
+
+#plot cell + nuc combined
+df <- as.data.frame(pvr@meta.data)
+
+colors <- c("#2BA9E1", "#FBAF42", "#B7295C") #state
+ggplot(df, aes(x=pseudotime, color = State, fill= State)) + 
+  scale_fill_manual(values = colors) +
+  geom_density(alpha = 0.2) + theme_classic() + ylab("Cell Density")
+
+colors <- c("#3CB54A","#642E8D","#F15B2B") #treatment
+ggplot(df, aes(x=pseudotime, color = treatment, fill= treatment)) + 
+  scale_fill_manual(values = colors) +
+  geom_density(alpha = 0.2) + theme_classic() + ylab("Cell Density")
+
+# plot cell
+df <- as.data.frame(pvr@meta.data) %>% subset(run == "Cells")
+
+colors <- c("#2BA9E1", "#FBAF42", "#B7295C") #state
+ggplot(df, aes(x=pseudotime, color = State, fill= State)) + 
+  scale_fill_manual(values = colors) +
+  geom_density(alpha = 0.2) + theme_classic() + ylab("Cell Density")
+
+colors <- c("#3CB54A","#642E8D","#F15B2B") #treatment
+ggplot(df, aes(x=pseudotime, color = treatment, fill= treatment)) + 
+  scale_fill_manual(values = colors) +
+  geom_density(alpha = 0.2) + theme_classic() + ylab("Cell Density")
+
+# plot nuc
+df <- as.data.frame(pvr@meta.data) %>% subset(run == "Nuclei")
+
+colors <- c("#2BA9E1", "#FBAF42", "#B7295C") #state
+ggplot(df, aes(x=pseudotime, color = State, fill= State)) + 
+  scale_fill_manual(values = colors) +
+  geom_density(alpha = 0.2) + theme_classic() + ylab("Cell Density")
+
+colors <- c("#3CB54A","#642E8D","#F15B2B") #treatment
+ggplot(df, aes(x=pseudotime, color = treatment, fill= treatment)) + 
+  scale_fill_manual(values = colors) +
+  geom_density(alpha = 0.2) + theme_classic() + ylab("Cell Density")
+```
+
+
+Create volcano hex plot of DE genes.
+```{r}
+x <- download.file("https://raw.githubusercontent.com/biocorecrg/CRG_RIntroduction/master/de_df_for_volcano.rds", "de_df_for_volcano.rds", method="curl")
+tmp <- readRDS("de_df_for_volcano.rds")
+  #need to make df with gene names, logfc, pval
+
+#to compare ctrl vs all sox9 KO grouped tgthr
+Idents(pvr_comb.int) <- "run"
+#Print top 100 differentially expressed genes between Group A & B
+de <- FindMarkers(pvr_comb.int, ident.1= "Cells", ident.2= "Nuclei", min.pct=0, min.cells.feature=0, min.cells.group=0, logfc.threshold=0)
+de$genes <- rownames(de)
+colnames(de) <- c(colnames(de), "genes")
+
+df <- data.frame(de["genes"],de["avg_log2FC"], de["p_val"], de["p_val_adj"], de["pct.1"], de["pct.2"]) 
+colnames(df) <- c("genes", "avg_log2FC", "p_val", "p_val_adj", "pct.1", "pct.2")
+
+#create diffexpressed column
+df$diffexpressed <- "NO"
+df$diffexpressed[df$avg_log2FC > 0.6 & df$p_val < 0.05] <- "Cell"
+df$diffexpressed[df$avg_log2FC < -0.6 & df$p_val < 0.05] <- "Nuclei"
+
+#create vector of top 10 genes that are DE by Cells and Nuclei
+x <- de[order(de$avg_log2FC),] 
+label <- x$genes[1:10]    #add negative FC genes (Nuclei)
+x <- df[order(df$avg_log2FC, decreasing=T),] 
+label <- c(label, x$genes[1:10])    #add positive FC genes (Cells) 
+
+#create csv of top 100 genes that are DE by Cells and Nuclei to choose vln plot genes
+x <- df[order(df$avg_log2FC),] 
+top100de_sn <- data.frame(head(x, 100))    #negative FC genes (Nuclei)
+
+x <- df[order(df$avg_log2FC, decreasing=T),] 
+top100de_sc <- data.frame(head(x, 100))   #positive FC genes (Cells) 
+
+write_csv(top100de_sn, file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/top100de_sn.csv")
+write_csv(top100de_sc, file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/top100de_sc.csv")
+
+#create delabel column
+df <- df %>% mutate(delabel = if_else(genes %in% label, genes, "NA")) %>% mutate()
+df$delabel[df$delabel == "NA"] <- NA
+
+write_csv(df, file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/df_comb.int.csv")
+write_csv(de, file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/de_comb.int.csv")
+
+#hexagonal plot
+a <- ggplot(de, aes(x=avg_log2FC, y=-log10(p_val)))
+my_breaks <- c(1, 10, 100, 1000, 10000) 
+
+a + geom_hex(bins= 80) + scale_fill_viridis_c(name= "No. of Genes", trans= "log", breaks = my_breaks, labels= my_breaks, option="H", begin= .05, end = 0.9) + xlab("Cells vs Nuclei (logFC)") + ylab("Significance(-log10 P-value)") + theme_classic() + geom_hline(yintercept=c(-log10(0.05)), col="black") + geom_vline(xintercept=0, col="black") 
+
+a + geom_hex(bins= 80) + scale_fill_viridis_c(name= "No. of Genes", trans= "log", breaks = my_breaks, labels= my_breaks, option="H", begin= .05, end = 0.9) + xlab("Cells vs Nuclei (logFC)") + ylab("Significance(-log10 P-value)") + theme_classic() + geom_hline(yintercept=c(-log10(0.05)), col="black")    #no vertical line
+```
+Notes: why are horizontal lines set ~0.6 in papers when significance= >1.5 FC? Answer: log2(1.5)= 0.6
+Positive logFC means higher in first ident.
+Clayton prefers if there is no vertical line.
+
+
+Volcano point plot.
+```{r}
+#to compare ctrl vs all sox9 KO grouped tgthr
+Idents(pvr_comb.int) <- "run"
+#Print top 100 differentially expressed genes between Group A & B
+x <- FindMarkers(pvr_comb.int, ident.1= "Cells", ident.2= "Nuclei", min.pct=0, min.cells.feature=0, min.cells.group=0, logfc.threshold=0)
+de$genes <- rownames(de)
+
+#create diffexpressed and delabel columns 
+de$diffexpressed <- "nonDE"
+  de$diffexpressed[de$avg_log2FC > 0 & de$p_val < 0.05] <- "Cell"
+  de$diffexpressed[de$avg_log2FC < 0 & de$p_val < 0.05] <- "Nuclei"
+de$diffexpressed2 <- "nonDE"
+  de$diffexpressed2[de$p_val < 0.05] <- "DE"
+de$delabel <- NA
+de$delabel[de$diffexpressed2 != "nonDE"] <- de$genes[de$diffexpressed2 != "nonDE"]
+
+#create vector of top genes that are DE by Cells and Nuclei
+#by log2FC
+x <- de[order(de$avg_log2FC),] 
+    label <- x$genes[1:5]    #add negative FC genes (Nuclei)
+    x <- x[order(x$avg_log2FC, decreasing=T),] 
+    label <- c(label, x$genes[1:5])    #add positive FC genes (Cells) 
+x <- de %>% filter(p_val !=0)
+    x <- x[order(x$avg_log2FC),] 
+    label_filtered <- x$genes[1:5]    #add negative FC genes (Nuclei)
+    x <- x[order(x$avg_log2FC, decreasing=T),] 
+    label_filtered <- c(label_filtered, x$genes[1:5])    #add positive FC genes (Cells) 
+de <- de %>% mutate(delabel_top = if_else(genes %in% label, genes, "NA")) #top 10 
+      de$delabel_top[de$delabel_top == "NA"] <- NA
+de <- de %>% mutate(delabel_topfiltered = if_else(genes %in% label_filtered, genes, "NA")) #top 10 filtered out pval=0
+      de$delabel_topfiltered[de$delabel_topfiltered == "NA"] <- NA
+
+      #select colors
+colors10 <- scales::viridis_pal(begin= .12, end = 0.87)(30)
+show_col(colors10)
+
+
+
+
+#plot with no label
+  #plot with color by nonDE and DE
+a <- de %>% ggplot(aes(x=avg_log2FC, y=-log10(p_val_adj), color=diffexpressed2))
+b <- de %>% filter(p_val !=0) %>% ggplot(aes(x=avg_log2FC, y=-log10(p_val_adj), color=diffexpressed2))
+colors2 <- c("#20A486FF", "black")
+
+a + geom_point() + theme_classic() +scale_color_manual(values=c(colors1, "black")) + geom_hline(yintercept=c(-log10(0.05)), col="black") + xlab("Cells vs Nuclei (log2FC)") + ylab("Significance(-log10 P-value)")
+b + geom_point() + theme_classic() +scale_color_manual(values=c(colors1, "black")) + geom_hline(yintercept=c(-log10(0.05)), col="black") + xlab("Cells vs Nuclei (log2FC)") + ylab("-log10(P-value)")
+
+  #plot with color by Cells, Nuclei, and nonDE
+c <- de  %>% ggplot(aes(x=avg_log2FC, y=-log10(p_val_adj), color=diffexpressed))
+d <- de %>% filter(p_val !=0) %>% ggplot(aes(x=avg_log2FC, y=-log10(p_val_adj), color=diffexpressed))
+colors3 <- c("#00BFEB","#E43E3E", "black")
+
+c + geom_point() + theme_classic() + scale_color_manual(values=colors3, limits= c("Cell", "Nuclei", "nonDE")) + geom_hline(yintercept=c(-log10(0.05)), col="black") + geom_vline(xintercept=0, col="black") + xlab("Cells vs Nuclei (log2FC)") + ylab("Significance(-log10 P-value)") + scale_fill_discrete(limits= c("Cell", "Nuclei", "nonDE"))
+
+d + geom_point() + theme_classic() + scale_color_manual(values=colors3, limits= c("Cell", "Nuclei", "nonDE")) + geom_hline(yintercept=c(-log10(0.05)), col="black") + geom_vline(xintercept=0, col="black") + xlab("Cells vs Nuclei (log2FC)") + ylab("-log10(P-value)")
+
+
+#plot with label
+  #plot with color by nonDE and DE
+a <- de %>% ggplot(aes(x=avg_log2FC, y=-log10(p_val_adj), color=diffexpressed2, label=delabel_top))
+b <- de %>% filter(p_val !=0) %>% ggplot(aes(x=avg_log2FC, y=-log10(p_val_adj), color=diffexpressed2, label=delabel_topfiltered))
+colors2 <- c("#20A486FF", "black")
+
+a + geom_point() + theme_classic() +scale_color_manual(values=c(colors1, "black")) + geom_hline(yintercept=c(-log10(0.05)), col="black") + xlab("Cells vs Nuclei (log2FC)") + ylab("Significance(-log10 P-value)") + geom_text_repel(show.legend= F)
+b + geom_point() + theme_classic() +scale_color_manual(values=c(colors1, "black")) + geom_hline(yintercept=c(-log10(0.05)), col="black") + xlab("Cells vs Nuclei (log2FC)") + ylab("-log10(P-value)") + geom_text_repel(show.legend= F)
+
+  #plot with color by Cells, Nuclei, and nonDE
+c <- de  %>% ggplot(aes(x=avg_log2FC, y=-log10(p_val_adj), color=diffexpressed, label=delabel_top))
+d <- de %>% filter(p_val !=0) %>% ggplot(aes(x=avg_log2FC, y=-log10(p_val_adj), color=diffexpressed, label=delabel_topfiltered))
+colors3 <- c("#00BFEB","#E43E3E", "black")
+
+c + geom_point() + theme_classic() + scale_color_manual(values=colors3, limits= c("Cell", "Nuclei", "nonDE")) + geom_hline(yintercept=c(-log10(0.05)), col="black") + geom_vline(xintercept=0, col="black") + xlab("Cells vs Nuclei (log2FC)") + ylab("Significance(-log10 P-value)") + geom_text_repel(show.legend= F) +
+
+d + geom_point() + theme_classic() + scale_color_manual(values=colors3, limits= c("Cell", "Nuclei", "nonDE")) + geom_hline(yintercept=c(-log10(0.05)), col="black") + geom_vline(xintercept=0, col="black") + xlab("Cells vs Nuclei (log2FC)") + ylab("-log10(P-value)") + geom_text_repel(show.legend= F)
+```
+
+Volcano point plot with Clayton's dataframe.
+```{r}
+de <- read_csv(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/degene_cellsvsnuc.csv")
+rownames(de) <- de$...1
+
+#create diffexpressed and delabel columns 
+de$diffexpressed <- "nonDE"
+  de$diffexpressed[de$avg_log2FC > 0] <- "Cells"
+  de$diffexpressed[ de$avg_log2FC < 0] <- "Nuclei"
+  
+colors2 <- c("#4484DF", "#DF9144", "black")
+
+  #plot with color by Cells, Nuclei, and nonDE
+c <- de  %>% ggplot(aes(x=avg_log2FC, y=-log10(p_val_adj), color=diffexpressed))
+
+c + geom_point() + theme_classic() + scale_color_manual(values=colors2, limits= c("Cells", "Nuclei", "nonDE")) + xlab("Cells vs Nuclei (log2FC)") + ylab("Significance(-log10 P-value)") + scale_fill_discrete(limits= c("Cell", "Nuclei", "nonDE")) 
+
+table(de$avg_log2FC > 0)
+```
+
+Find DE genes between sn and sc in each cell type.
+```{r}
+#to compare ctrl vs all sox9 KO grouped tgthr
+Idents(pvr_comb.int) <- "run"
+#split by cell type
+pvr_comb_splitbytreatment <-SplitObject(pvr_comb.int, split.by= "treatment")
+
+#Print differentially expressed genes between Group A & B
+
+de <- pvr_comb_splitbytreatment[["Control"]] %>%
+      FindMarkers(ident.1= "Cells", ident.2= "Nuclei", min.pct=0, min.cells.feature=0, 
+      min.cells.group=0, logfc.threshold=0)
+        de$genes <- rownames(de)
+        write.csv(de, file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/de_control.csv")
+de <- pvr_comb_splitbytreatment[["Hr4"]] %>%
+      FindMarkers(ident.1= "Cells", ident.2= "Nuclei", min.pct=0, min.cells.feature=0, 
+      min.cells.group=0, logfc.threshold=0)
+        de$genes <- rownames(de)
+        write.csv(de, file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/de_hr4.csv")
+de <- pvr_comb_splitbytreatment[["Day14"]] %>%
+      FindMarkers(ident.1= "Cells", ident.2= "Nuclei", min.pct=0, min.cells.feature=0, 
+      min.cells.group=0, logfc.threshold=0)
+        de$genes <- rownames(de)
+        write.csv(de, file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/de_day14.csv")
+```
+
+
+Downsampled volcano plot. Equal celltypes btwn cells/nuclei.
+```{r}
+seurat<- readRDS("/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_comb_int.rds")
+table(seurat$Celltype, seurat$run)
+
+x <- SplitObject(seurat, split.by= "run")
+    cells <- x$Cells
+      cells <- SplitObject(cells, split.by= "Celltype")
+        cells_Ama <- cells$Amacrine
+        cells_BC <- cells$Bipolar
+        cells_Cones <- cells$Cone
+        cells_HC <- cells$Horizontal
+        cells_micg <- cells$Microglia
+        cells_MG <- cells$`Müller Glia`
+        cells_Oli <- cells$Oligodendrocytes
+        cells_RGC <- cells$RGC
+        cells_Rod <- cells$Rod
+    nuc <- x$Nuclei
+      nuc <- SplitObject(nuc, split.by= "Celltype")
+        nuc_Ama <- nuc$Amacrine
+        nuc_BC <- nuc$Bipolar
+        nuc_Cones <- nuc$Cone
+        nuc_HC <- nuc$Horizontal
+        nuc_Micg <- nuc$Microglia
+        nuc_MG <- nuc$`Müller Glia`
+        nuc_Oli <- nuc$Oligodendrocytes
+        nuc_RGC <- nuc$RGC
+        nuc_Rod <- nuc$Rod
+
+ds_cellnames <- colnames(merge(cells_Ama[, sample(colnames(cells_Ama), size =247, replace=F)],
+                              y = c(nuc_Ama[, sample(colnames(nuc_Ama), size =247, replace=F)], 
+                                  cells_BC[, sample(colnames(cells_BC), size =359, replace=F)],
+                                  nuc_BC[, sample(colnames(nuc_BC), size =359, replace=F)],
+                                  cells_Cones[, sample(colnames(cells_Cones), size =220, replace=F)],
+                                  nuc_Cones[, sample(colnames(nuc_Cones), size =220, replace=F)],
+                                  cells_HC[, sample(colnames(cells_HC), size =52, replace=F)],
+                                  nuc_HC[, sample(colnames(nuc_HC), size =52, replace=F)],
+                                  cells_micg[, sample(colnames(cells_micg), size =77, replace=F)],
+                                  nuc_Micg[, sample(colnames(nuc_Micg), size =77, replace=F)],
+                                  cells_MG[, sample(colnames(cells_MG), size =464, replace=F)],
+                                  nuc_MG[, sample(colnames(nuc_MG), size =464, replace=F)],
+                                  cells_Oli[, sample(colnames(cells_Oli), size =3, replace=F)],
+                                  nuc_Oli[, sample(colnames(nuc_Oli), size =3, replace=F)],
+                                  cells_RGC[, sample(colnames(cells_RGC), size =12, replace=F)],
+                                  nuc_RGC[, sample(colnames(nuc_RGC), size =12, replace=F)],
+                                  cells_Rod[, sample(colnames(cells_Rod), size =935, replace=F)],
+                                  nuc_Rod[, sample(colnames(nuc_Rod), size =935, replace=F)])
+))
+seurat_eq <- subset(seurat, cells = ds_cellnames) #astrocytes not included bc none in cell dataset. 
+table(seurat_eq$Celltype, seurat_eq$run)
+
+#Print top differentially expressed genes between Group A & B
+de <- FindMarkers(seurat_eq, ident.1= "Cells", ident.2= "Nuclei", min.pct=0.2, max.cells.per.ident = 2000)
+de$genes <- rownames(de)
+
+#create diffexpressed and delabel columns 
+de$diffexpressed <- "nonDE"
+  de$diffexpressed[de$avg_log2FC > 0] <- "Cell"
+  de$diffexpressed[de$avg_log2FC < 0] <- "Nuclei"
+
+  #plot with color by Cells, Nuclei, and nonDE
+c <- de  %>% ggplot(aes(x=avg_log2FC, y=-log10(p_val_adj), color=diffexpressed))
+d <- de %>% dplyr::filter(p_val !=0) %>% ggplot(aes(x=avg_log2FC, y=-log10(p_val_adj), color=diffexpressed))
+colors3 <- c("#4484DF", "#DF9144", "black")
+
+c + geom_point() + theme_classic() + scale_color_manual(values=colors3, limits= c("Cell", "Nuclei", "nonDE")) + xlab("Cells vs Nuclei (log2FC)") + ylab("Significance(-log10 P-value)") + scale_fill_discrete(limits= c("Cell", "Nuclei", "nonDE"))
+
+d + geom_point() + theme_classic() + scale_color_manual(values=colors3, limits= c("Cell", "Nuclei", "nonDE")) + xlab("Cells vs Nuclei (log2FC)") + ylab("-log10(P-value)")
+
+#rm(cells_Ama, cells_BC, cells_Cones, cells_HC, cells_MG, cells_micg, cells_Oli, cells_RGC, cells_Rod, nuc_Ama, nuc_BC, nuc_Cones, nuc_HC, nuc_MG, nuc_Micg, nuc_Oli, nuc_RGC, nuc_Rod)
+rm(c,d)
+```
+Note: don't need to renormalize bc result is the same with or without
+
+GO analysis by run.
+```{r}
+library (clusterProfiler)
+library (org.Hs.eg.db)
+library (scales)
+library (DOSE)
+
+#make GO analysis and plot functions
+GO.analysis <- function(de, cutoff) {
+GO <- enrichGO(rownames(de), keyType = "SYMBOL",ont = "BP", 
+                    OrgDb = "org.Hs.eg.db", readable = F)
+GO_2 <- simplify(GO, cutoff = cutoff, by = "p.adjust", select_fun = min)
+GO_2 <- GO_2@result
+GO_2$GeneRatio<-parse_ratio(GO_2$GeneRatio)
+GO_2$Description <- factor(GO_2$Description, levels = GO_2$Description)
+return(GO_2)
+}
+
+plot.GO <- function(GO.analysis_output, run, color) {
+  ggplot(GO.analysis_output[1:5,], aes(log10(p.adjust), y = Description, size = Count, color = p.adjust )) + 
+    geom_point() + 
+    scale_x_reverse() +
+    ggtitle(paste0("Genes over-represented in ", as.character(run), sep="")) + 
+    theme_classic() +  
+    scale_y_discrete(labels = wrap_format(30), limits=rev) +
+    theme(legend.position = "right") +
+    scale_colour_gradientn(colours = color, guide=guide_colorbar(reverse=TRUE))
+}
+
+plot.GO_rev <- function(GO.analysis_output, run, color) {
+  ggplot(GO.analysis_output[1:5,], aes(log10(p.adjust), y = Description, size = Count, color = p.adjust )) + 
+    geom_point() + 
+    ggtitle(paste0("Genes over-represented in ", as.character(run), sep="")) +
+    theme_classic() + 
+    scale_y_discrete(position = "right",labels = wrap_format(30), limits=rev) + 
+    theme(legend.position = "left") +
+    scale_colour_gradientn(colours = color, guide=guide_colorbar(reverse=TRUE))
+}
+
+cellDE <- read.csv(file = "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/de_eqcelltype_cell.csv", row.names = 1)
+nucDE <- read.csv(file = "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/de_eqcelltype_nuclei.csv", row.names = 1)
+
+GO_cell <- GO.analysis(cellDE, cutoff= 0.7)
+GO_nuc <- GO.analysis(nucDE, cutoff= 0.7)
+
+plot.GO(GO_cell, "Cells", color = c("#005494", "#2D84C6", "#76C4FF"))
+plot.GO_rev(GO_nuc, "Nuclei", color = c("#D8600E", "#EA843F", "#E9B416"))
+```
+
+Find DE genes between sn and sc in each cell type. Make volcano and GO plots. (NOW)
+```{r}
+library(openxlsx)
+
+pvr <- readRDS(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_comb_int.rds")
+Idents(pvr) <- "run"
+type <- unique(pvr$Celltype)
+type <- type[type != "Astrocyte"]
+num <- table(pvr$Celltype, pvr$run) %>% apply(1, FUN=min) #find min number of cells/nuc in each cell type
+de <- list()
+
+for (i in type) {
+  ct <- as.character(i)
+  x <- subset(pvr, Celltype == ct) %>% 
+    FindMarkers(ident.1= "Cells", ident.2= "Nuclei", max.cells.per.ident = num[[ct]], min.pct = 0.2)
+  x$genes <- rownames(x)
+  x$group <- "nonDE"
+  x$group[x$avg_log2FC > 0] <- "Cell"
+  x$group[x$avg_log2FC < 0] <- "Nuclei"
+  de[[ct]] <- x
+}
+
+#save de genes
+write.xlsx(de, file = "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/de_eq_run_celltype.xlsx")
+
+#volcano plots
+plot.volcano <- function(de, celltype, color) {
+  plot <- de[[celltype]]  %>% ggplot(aes(x=avg_log2FC, y=-log10(p_val_adj), color=group))
+  plot + geom_point() + theme_classic() + scale_color_manual(values=color, limits= c("Cell", "Nuclei", "nonDE")) + 
+    xlab("Cells vs Nuclei (log2FC)") + ylab("Significance(-log10 P-value)") + 
+    scale_fill_discrete(limits= c("Cell", "Nuclei", "nonDE")) + 
+    theme(plot.title = element_text(hjust=0.5), legend.title = element_text(hjust=0.5)) +
+    ggtitle(celltype)
+}
+
+color <- c("#4484DF", "#DF9144", "black") #OG colors
+color <- c("#2D84C6", "#EA843F", "black") #more vibrant
+plot.volcano(de = de, celltype = "Rod", color = color)
+plot.volcano(de = de, celltype = "Cone", color = color)
+plot.volcano(de = de, celltype = "Bipolar", color = color)
+plot.volcano(de = de, celltype = "Amacrine", color = color)
+plot.volcano(de = de, celltype = "Horizontal", color = color)
+plot.volcano(de = de, celltype = "RGC", color = color)
+plot.volcano(de = de, celltype = "Müller Glia", color = color)
+plot.volcano(de = de, celltype = "Microglia", color = color)
+plot.volcano(de = de, celltype = "Oligodendrocytes", color = color)
+
+
+rm(c,data,x,color,type,num,i,ct)
+
+
+# GO by cell type
+de$Rod %>% subset(group == "Cell") %>% GO.analysis(cutoff=0.7) %>% 
+  plot.GO(run="Cells", color = c("#005494", "#2D84C6", "#76C4FF"))
+de$Rod %>% subset(group == "Nuclei") %>% GO.analysis(cutoff=0.7) %>% 
+  plot.GO_rev(run="Nuclei", color = c("#D8600E", "#EA843F", "#E9B416"))
+
+de$Cone %>% subset(group == "Cell") %>% GO.analysis(cutoff=0.7) %>% 
+  plot.GO(run="Cells", color = c("#005494", "#2D84C6", "#76C4FF"))
+de$Cone %>% subset(group == "Nuclei") %>% GO.analysis(cutoff=0.7) %>% 
+  plot.GO_rev(run="Nuclei", color = c("#D8600E", "#EA843F", "#E9B416"))
+
+de$Bipolar %>% subset(group == "Cell") %>% GO.analysis(cutoff=0.7) %>% 
+  plot.GO(run="Cells", color = c("#005494", "#2D84C6", "#76C4FF"))
+de$Bipolar %>% subset(group == "Nuclei") %>% GO.analysis(cutoff=0.7) %>% 
+  plot.GO_rev(run="Nuclei", color = c("#D8600E", "#EA843F", "#E9B416"))
+
+de$Amacrine %>% subset(group == "Cell") %>% GO.analysis(cutoff=0.7) %>% 
+  plot.GO(run="Cells", color = c("#005494", "#2D84C6", "#76C4FF"))
+de$Amacrine %>% subset(group == "Nuclei") %>% GO.analysis(cutoff=0.7) %>% 
+  plot.GO_rev(run="Nuclei", color = c("#D8600E", "#EA843F", "#E9B416"))
+
+de$Horizontal %>% subset(group == "Cell") %>% GO.analysis(cutoff=0.7) %>% 
+  plot.GO(run="Cells", color = c("#005494", "#2D84C6", "#76C4FF"))
+de$Horizontal %>% subset(group == "Nuclei") %>% GO.analysis(cutoff=0.7) %>% 
+  plot.GO_rev(run="Nuclei", color = c("#D8600E", "#EA843F", "#E9B416"))
+
+de$RGC %>% subset(group == "Cell") %>% GO.analysis(cutoff=0.7) %>% 
+  plot.GO(run="Cells", color = c("#005494", "#2D84C6", "#76C4FF"))
+de$RGC %>% subset(group == "Nuclei") %>% GO.analysis(cutoff=0.7) %>% 
+  plot.GO_rev(run="Nuclei", color = c("#D8600E", "#EA843F", "#E9B416"))
+
+de$`Müller Glia` %>% subset(group == "Cell") %>% GO.analysis(cutoff=0.7) %>% 
+  plot.GO(run="Cells", color = c("#005494", "#2D84C6", "#76C4FF"))
+de$`Müller Glia` %>% subset(group == "Nuclei") %>% GO.analysis(cutoff=0.7) %>% 
+  plot.GO_rev(run="Nuclei", color = c("#D8600E", "#EA843F", "#E9B416"))
+
+de$Microglia %>% subset(group == "Cell") %>% GO.analysis(cutoff=0.7) %>% 
+  plot.GO(run="Cells", color = c("#005494", "#2D84C6", "#76C4FF"))
+de$Microglia %>% subset(group == "Nuclei") %>% GO.analysis(cutoff=0.7) %>% 
+  plot.GO_rev(run="Nuclei", color = c("#D8600E", "#EA843F", "#E9B416"))
+
+de$Oligodendrocytes %>% subset(group == "Cell") %>% GO.analysis(cutoff=0.7) %>% 
+  plot.GO(run="Cells", color = c("#005494", "#2D84C6", "#76C4FF"))
+de$Oligodendrocytes %>% subset(group == "Nuclei") %>% GO.analysis(cutoff=0.7) %>% 
+  plot.GO_rev(run="Nuclei", color = c("#D8600E", "#EA843F", "#E9B416"))
+```
+
+Figure 3D: Correlation heatmap.
+```{r}
+# Bring in Seurat object
+seurat <- readRDS("/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_comb_int.rds")
+#seurat <- pvr_comb.int
+
+# Extract raw counts and metadata to create SingleCellExperiment object
+Idents(seurat) <- seurat@meta.data$run
+counts <- seurat@assays$RNA@counts 
+metadata <- seurat@meta.data
+
+
+# Create single cell experiment object
+sce <- SingleCellExperiment(assays = list(counts = counts), 
+                           colData = metadata)
+
+
+
+
+vargenes <- variableGenes(dat= sce, exp_labels= sce$run)
+
+length(vargenes)
+aurocs <- MetaNeighborUS(var_genes = vargenes, dat= sce, study_id = sce$run, cell_type = sce$Celltype, fast_version = TRUE)
+plotHeatmap(aurocs, cex= 0.5, margins= c(11,11))
+```
+
+
+```{r}
+seurat <- readRDS(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_comb_int.rds")
+Idents(seurat) <- 'Celltype'
+
+ac <- FindMarkers(seurat, ident.1 = "Amacrine", only.pos = T, 
+                  max.cells.per.ident = 2000)
+
+ac <- ac[order(-ac$avg_log2FC),] 
+
+ac <- rownames(ac)[1:200]
+
+seurat <- AddModuleScore_UCell(seurat, features = list(ac), name = "Amacrine")
+
+
+df<-as.data.frame(aggregate(seurat@meta.data$signature_1Amacrine, 
+                            list(seurat@meta.data$Celltype,seurat@meta.data$run), mean))
+colnames(df) <- c("Celltype", "run", "meanUCell")
+
+df$denominator[df$run == "Cells"] <- df$meanUCell[df$Celltype == "Amacrine" & df$run == "Cells"]
+df$denominator[df$run == "Nuclei"] <- df$meanUCell[df$Celltype == "Amacrine" & df$run == "Nuclei"]
+df$proportion <- df$meanUCell/df$denominator
+
+
+
+```
+
+Create sn Muller Glia object.
+```{r}
+pvr_sn_mg <- subset(pvr_sn.int, subset= (Celltype == "Müller Glia"))
+
+DimPlot(pvr_sn_mg, group.by = "Celltype", label=T, repel=T)
+
+pvr_sn_mg<- NormalizeData(pvr_sn_mg) %>%
+         FindVariableFeatures(selection.method = "vst", nfeatures = 2000) %>%
+         ScaleData()
+pvr_sn_mg <- RunPCA(pvr_sn_mg, npcs = 100, features = VariableFeatures(object = pvr_sn_mg))
+ElbowPlot(pvr_sn_mg)
+pvr_sn_mg <- FindNeighbors(pvr_sn_mg, dims = 1:100) %>%
+          FindClusters(resolution = 0.6) %>%
+          RunUMAP(dims = 1:25)
+
+pvr_sn_mg <- RunHarmony(pvr_sn_mg, group.by.vars = "orig.ident")
+
+pvr_sn_mg <- RunUMAP(pvr_sn_mg, dims = 1:10,reduction = "harmony") %>% 
+  FindNeighbors(dims = 1:10, reduction = "harmony") %>% 
+  FindClusters(resolution = 2.5)
+pvr_sn_mg[[sprintf("ClusterNames_%.1f_%dPC", 2.5, 10)]] <- Idents(object = pvr_sn_mg)
+
+# normal plot
+DimPlot(pvr_sn_mg, group.by = "orig.ident", label=F) + 
+    theme(plot.title = element_text(hjust=0.5, face="bold")) + 
+    scale_colour_viridis_d(begin= .12, end = 0.87, option="turbo")
+DimPlot(pvr_sn_mg, group.by = "treatment", label=F) + 
+    theme(plot.title = element_text(hjust=0.5, face="bold")) + 
+    scale_colour_viridis_d(begin= .12, end = 0.87, option="turbo")
+DimPlot(pvr_sn_mg, group.by = "seurat_clusters", label=T) + 
+    theme(plot.title = element_text(hjust=0.5, face="bold")) + 
+    scale_colour_viridis_d(begin= .12, end = 0.87, option="turbo")
+
+# no legend, no label
+DimPlot(pvr_sn_mg, group.by = "orig.ident", label=F) + 
+    theme_classic() + theme(axis.ticks = element_blank(), axis.text = element_blank(),
+    axis.line = element_blank(), title= element_blank(), legend.position = "none") + 
+    scale_colour_viridis_d(begin= .12, end = 0.87, option="turbo")
+
+DimPlot(pvr_sn_mg, group.by = "treatment", label=F) + 
+    theme_classic() + theme(axis.ticks = element_blank(), axis.text = element_blank(),
+    axis.line = element_blank(), title= element_blank(), legend.position = "none") + 
+    scale_colour_viridis_d(begin= .12, end = 0.87, option="turbo")
+```
+
+sn Muller Glia cell states.
+```{r}
+reactive <- list(c("GFAP", "LIF", "IL6", "STAT3", "NFKBIA", "IRF1", "NFKB1", "VCAM1"))
+fibrotic <- list(c("ACTA2", "COL1A1", "KLF6", "MKI67", "S100A6", "S100A11", "LOC100353245", "LOC103344972", "CTGF"))
+resting <- list(c("GLUL","AQP4","SLC1A3","RAX","RLBP1","KDR","PRDX6", "LHX2", "KCNJ10", "TCF7L2"))
+
+pvr_sn_mg <- AddModuleScore(object = pvr_sn_mg, features = reactive, ctrl = 100, name = 'Reactive')
+pvr_sn_mg <- AddModuleScore(object = pvr_sn_mg, features = fibrotic, ctrl = 100, name = 'Fibrotic')
+pvr_sn_mg <- AddModuleScore(object = pvr_sn_mg, features = resting, ctrl = 100, name = 'Resting')
+
+FeaturePlot(pvr_sn_mg, features = c('Reactive1'), order=T) + 
+      scale_colour_viridis(begin= .12, end = 0.87, option="turbo")
+FeaturePlot(pvr_sn_mg, features = c('Fibrotic1'), order=T) + 
+      scale_colour_viridis(begin= .12, end = 0.87, option="turbo")
+FeaturePlot(pvr_sn_mg, features = c('Resting1'), order=T) + 
+      scale_colour_viridis(begin= .12, end = 0.87, option="turbo")
+DotPlot(pvr_sn_mg, features= c('Reactive1', 'Fibrotic1')) + 
+      scale_colour_viridis(begin= .12, end = 0.87, option="turbo")
+
+pvr_sn_mg <- RenameIdents(pvr_sn_mg, 
+                            `2`="Resting", 
+                            `8`="Resting", 
+                            `16`="Resting",
+                            `14`="Resting",
+                            `6`="Resting",
+                            `15`="Reactive",
+                            `12`="Reactive",
+                            `5`="Reactive", 
+                            `0`="Reactive",
+                            `13`="Reactive",
+                            `12`="Reactive",
+                            `17`="Fibrotic", 
+                            `9`="Fibrotic", 
+                            `7`="Fibrotic")  #plot resting, then ensure all idents are in this line of code
+reactive 15,12,5,0,13,12
+fibrotic 17,9,7
+fibrotic or resting ?10,4,1
+resting
+
+levels(x= pvr_sn_mg@active.ident) <- c("Resting", "Reactive", "Fibrotic")
+pvr_sn_mg[["State"]] <- pvr_sn_mg@active.ident
+
+FeaturePlot(pvr_sn_mg, features = "State", label=F) + 
+      scale_colour_viridis(begin= .12, end = 0.87, option="turbo")
+
+```
+
+Create sc Muller Glia object.
+```{r}
+pvr_sc_mg <- subset(pvr_sc.int, subset= (Celltype == "Müller Glia"))
+
+DimPlot(pvr_sc_mg, group.by = "Celltype", label=T, repel=T)
+
+pvr_sc_mg<- NormalizeData(pvr_sc_mg) %>%
+  FindVariableFeatures(selection.method = "vst", nfeatures = 2000) %>%
+  ScaleData()
+pvr_sc_mg <- RunPCA(pvr_sc_mg, npcs = 100, features = VariableFeatures(object = pvr_sc_mg))
+ElbowPlot(pvr_sc_mg)
+pvr_sc_mg <- FindNeighbors(pvr_sc_mg, dims = 1:100) %>%
+  FindClusters(resolution = 0.6) %>%
+  RunUMAP(dims = 1:25)
+
+pvr_sc_mg <- RunHarmony(pvr_sc_mg, group.by.vars = "orig.ident")
+
+pvr_sc_mg <- RunUMAP(pvr_sc_mg, dims = 1:10,reduction = "harmony") %>% 
+  FindNeighbors(dims = 1:10, reduction = "harmony") %>% 
+  FindClusters(resolution = 0.9)
+pvr_sc_mg[[sprintf("ClusterNames_%.1f_%dPC", 0.9, 10)]] <- Idents(object = pvr_sc_mg)
+
+# normal plot
+DimPlot(pvr_sc_mg, group.by = "treatment", label=F) + 
+  theme(plot.title = element_text(hjust=0.5, face="bold")) + 
+  scale_colour_viridis_d(begin= .12, end = 0.87, option="turbo")
+DimPlot(pvr_sc_mg, group.by = "seurat_clusters", label=T) + 
+  theme(plot.title = element_text(hjust=0.5, face="bold")) + 
+  scale_colour_viridis_d(begin= .12, end = 0.87, option="turbo")
+
+# no label
+DimPlot(pvr_sc_mg, group.by = "treatment", label=F) + 
+  theme_classic() + theme(axis.ticks = element_blank(), axis.text = element_blank(),
+                          axis.line = element_blank(), title= element_blank()) + 
+  scale_colour_viridis_d(begin= .12, end = 0.87, option="turbo")
+
+# no legend, no label
+DimPlot(pvr_sc_mg, group.by = "treatment", label=F) + 
+  theme_classic() + theme(axis.ticks = element_blank(), axis.text = element_blank(),
+                          axis.line = element_blank(), title= element_blank(), legend.position = "none") + 
+  scale_colour_viridis_d(begin= .12, end = 0.87, option="turbo")
+```
+
+sc Muller Glia cell states.
+```{r}
+reactive <- list(c("GFAP", "LIF", "IL6", "STAT3", "NFKBIA", "IRF1", "NFKB1", "VCAM1"))
+fibrotic <- list(c("ACTA2", "COL1A1", "KLF6", "MKI67", "S100A6", "S100A11", "LOC100353245", "LOC103344972", "CTGF"))
+resting <-list(c("GLUL","AQP4","SLC1A3","RAX","RLBP1","KDR","PRDX6", "LHX2", "KCNJ10", "TCF7L2"))
+
+pvr_sc_mg <- AddModuleScore(object = pvr_sc_mg, features = reactive, ctrl = 100, name = 'Reactive')
+pvr_sc_mg <- AddModuleScore(object = pvr_sc_mg, features = fibrotic, ctrl = 100, name = 'Fibrotic')
+pvr_sc_mg <- AddModuleScore(object = pvr_sc_mg, features = resting, ctrl = 100, name = 'Resting')
+
+FeaturePlot(pvr_sc_mg, features = c('Reactive1'), order=T) + 
+  scale_colour_viridis(begin= .12, end = 0.87, option="turbo")
+FeaturePlot(pvr_sc_mg, features = c('Fibrotic1'), order=T) + 
+  scale_colour_viridis(begin= .12, end = 0.87, option="turbo")
+FeaturePlot(pvr_sc_mg, features = c('Resting1'), order=T) + 
+  scale_colour_viridis(begin= .12, end = 0.87, option="turbo")
+DotPlot(pvr_sc_mg, features= c('Reactive1', 'Fibrotic1')) + 
+  scale_colour_viridis(begin= .12, end = 0.87, option="turbo")
+
+pvr_sc_mg <- RenameIdents(pvr_sc_mg, 
+                          `2`="Resting", 
+                          `8`="Resting", 
+                          `16`="Resting",
+                          `14`="Resting",
+                          `6`="Resting",
+                          `15`="Reactive",
+                          `12`="Reactive",
+                          `5`="Reactive", 
+                          `0`="Reactive",
+                          `13`="Reactive",
+                          `12`="Reactive",
+                          `17`="Fibrotic", 
+                          `9`="Fibrotic", 
+                          `7`="Fibrotic")  #plot resting, then ensure all idents are in this line of code
+reactive 0,6,4,
+fibrotic 9,7,5,2,3
+resting 11,10,1,8 ? check
+
+levels(x= pvr_sc_mg@active.ident) <- c("Resting", "Reactive", "Fibrotic")
+pvr_sc_mg[["State"]] <- pvr_sc_mg@active.ident
+
+FeaturePlot(pvr_sc_mg, features = "State", label=F) + 
+  scale_colour_viridis(begin= .12, end = 0.87, option="turbo")
+```
+
+Figure 4: MG State dotplot.
+```{r}
+# Bring in Seurat object
+seurat <- readRDS("/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_snsc_mg_ogumap.rds")
+seurat@meta.data$StateRun <- paste(seurat@meta.data$State, seurat@meta.data$run, sep="_")
+
+# Extract raw counts and metadata to create SingleCellExperiment object
+Idents(seurat) <- seurat@meta.data$run
+counts <- seurat@assays$RNA@counts 
+metadata <- seurat@meta.data
+
+# Create single cell experiment object
+sce <- SingleCellExperiment(assays = list(counts = counts), 
+                           colData = metadata)
+
+genes <- c("GLUL","AQP4","SLC1A3","RAX","RLBP1","KDR","PRDX6", "LHX2", "KCNJ10", "TCF7L2", "GFAP", "LIF", "IL6", "STAT3", "NFKBIA", "IRF1", "NFKB1", "VCAM1", "ACTA2", "COL1A1", "KLF6", "MKI67", "S100A6", "S100A11", "LOC100353245", "LOC103344972", "CTGF")
+genes <- c("ACTA2", "COL1A1", "KLF6", "NFKBIA", "NFKB1", "GFAP", "TCF7L2", "KDR", "GLUL")
+  
+plotDotPlot(dat= sce, experiment_labels = sce$run, celltype_labels= sce$StateRun, gene_set= genes)
+
+```
+
+Figure 3: Spliced vs Unspliced boxplot.
+```{r}
+sn_loom <- ReadVelocity(file = "/Users/megan/Documents/Blackshaw_Lab/R/PVR/Output/RNA_Velocity/sn.loom")
+sc_loom <- ReadVelocity(file = "/Users/megan/Documents/Blackshaw_Lab/R/PVR/Output/RNA_Velocity/sc.loom")
+
+pvr_sn <- readRDS("/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_sn.rds")
+pvr_sc <- readRDS("/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_sc.rds")
+
+
+#Build a subsetted loom file.
+#Correct loom cell names to match OG seurat object.
+#Subset loom by cell type.
+
+#Single Cell
+sc_loom_built <- list()
+spliced <- sc_loom[["spliced"]]
+colnames(spliced) <- gsub("possorted_genome_bam_QIGQR:", "scR44_", colnames(spliced))
+colnames(spliced) <- gsub("possorted_genome_bam_SOW8E:", "scR45_", colnames(spliced))
+colnames(spliced) <- gsub("possorted_genome_bam_LPJH2:", "scR46_", colnames(spliced))
+colnames(spliced) <- gsub("possorted_genome_bam_638JL:", "scR52_", colnames(spliced))
+colnames(spliced) <- gsub("possorted_genome_bam_A498B:", "scR56_", colnames(spliced))
+colnames(spliced) <- gsub("x", "-1", colnames(spliced))
+spliced <- spliced[,colnames(pvr_sc)] #subset to only cells in pvr_sc
+sc_loom_built$spliced <- spliced 
+unspliced <- sc_loom[["unspliced"]]
+colnames(unspliced) <- gsub("possorted_genome_bam_QIGQR:", "scR44_", colnames(unspliced))
+colnames(unspliced) <- gsub("possorted_genome_bam_SOW8E:", "scR45_", colnames(unspliced))
+colnames(unspliced) <- gsub("possorted_genome_bam_LPJH2:", "scR46_", colnames(unspliced))
+colnames(unspliced) <- gsub("possorted_genome_bam_638JL:", "scR52_", colnames(unspliced))
+colnames(unspliced) <- gsub("possorted_genome_bam_A498B:", "scR56_", colnames(unspliced))
+colnames(unspliced) <- gsub("x", "-1", colnames(unspliced))
+unspliced <- unspliced[,colnames(pvr_sc)] #subset to only cells in pvr_sc
+sc_loom_built$unspliced <- unspliced
+ambiguous <- sc_loom[["ambiguous"]]
+colnames(ambiguous) <- gsub("possorted_genome_bam_QIGQR:", "scR44_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("possorted_genome_bam_SOW8E:", "scR45_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("possorted_genome_bam_LPJH2:", "scR46_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("possorted_genome_bam_638JL:", "scR52_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("possorted_genome_bam_A498B:", "scR56_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("x", "-1", colnames(ambiguous))
+ambiguous <- ambiguous[,colnames(pvr_sc)] #subset to only cells in pvr_sc
+sc_loom_built$ambiguous <- ambiguous
+
+#Single Nuclei
+sn_loom_built <- list()
+spliced <- sn_loom[["spliced"]]
+colnames(spliced) <- gsub("possorted_genome_bam_IIT4C:", "scR40_", colnames(spliced))
+colnames(spliced) <- gsub("possorted_genome_bam_K1FKC:", "scR41_", colnames(spliced))
+colnames(spliced) <- gsub("possorted_genome_bam_FXDLD:", "scR42_", colnames(spliced))
+colnames(spliced) <- gsub("possorted_genome_bam_9NDRR:", "scR43_", colnames(spliced))
+colnames(spliced) <- gsub("possorted_genome_bam_09ZMR:", "scR47_", colnames(spliced))
+colnames(spliced) <- gsub("possorted_genome_bam_X6H79:", "scR48_", colnames(spliced))
+colnames(spliced) <- gsub("possorted_genome_bam_JV059:", "scR49_", colnames(spliced))
+colnames(spliced) <- gsub("possorted_genome_bam_WSGEO:", "scR50_", colnames(spliced))
+colnames(spliced) <- gsub("possorted_genome_bam_8QQP9:", "scR51_", colnames(spliced))
+colnames(spliced) <- gsub("possorted_genome_bam_B4KHF:", "scR53_", colnames(spliced))
+colnames(spliced) <- gsub("possorted_genome_bam_QCZY3:", "scR54_", colnames(spliced))
+colnames(spliced) <- gsub("possorted_genome_bam_YRMOK:", "scR55_", colnames(spliced))
+colnames(spliced) <- gsub("x", "-1", colnames(spliced))
+spliced <- spliced[,colnames(pvr_sn)] #subset to only nuclei in pvr_sn
+sn_loom_built$spliced <- spliced
+unspliced <- sn_loom[["unspliced"]]
+colnames(unspliced) <- gsub("possorted_genome_bam_IIT4C:", "scR40_", colnames(unspliced))
+colnames(unspliced) <- gsub("possorted_genome_bam_K1FKC:", "scR41_", colnames(unspliced))
+colnames(unspliced) <- gsub("possorted_genome_bam_FXDLD:", "scR42_", colnames(unspliced))
+colnames(unspliced) <- gsub("possorted_genome_bam_9NDRR:", "scR43_", colnames(unspliced))
+colnames(unspliced) <- gsub("possorted_genome_bam_09ZMR:", "scR47_", colnames(unspliced))
+colnames(unspliced) <- gsub("possorted_genome_bam_X6H79:", "scR48_", colnames(unspliced))
+colnames(unspliced) <- gsub("possorted_genome_bam_JV059:", "scR49_", colnames(unspliced))
+colnames(unspliced) <- gsub("possorted_genome_bam_WSGEO:", "scR50_", colnames(unspliced))
+colnames(unspliced) <- gsub("possorted_genome_bam_8QQP9:", "scR51_", colnames(unspliced))
+colnames(unspliced) <- gsub("possorted_genome_bam_B4KHF:", "scR53_", colnames(unspliced))
+colnames(unspliced) <- gsub("possorted_genome_bam_QCZY3:", "scR54_", colnames(unspliced))
+colnames(unspliced) <- gsub("possorted_genome_bam_YRMOK:", "scR55_", colnames(unspliced))
+colnames(unspliced) <- gsub("x", "-1", colnames(unspliced))
+unspliced <- unspliced[,colnames(pvr_sn)] #subset to only nuclei in pvr_sn
+sn_loom_built$unspliced <- unspliced
+ambiguous <- sn_loom[["ambiguous"]]
+colnames(ambiguous) <- gsub("possorted_genome_bam_IIT4C:", "scR40_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("possorted_genome_bam_K1FKC:", "scR41_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("possorted_genome_bam_FXDLD:", "scR42_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("possorted_genome_bam_9NDRR:", "scR43_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("possorted_genome_bam_09ZMR:", "scR47_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("possorted_genome_bam_X6H79:", "scR48_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("possorted_genome_bam_JV059:", "scR49_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("possorted_genome_bam_WSGEO:", "scR50_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("possorted_genome_bam_8QQP9:", "scR51_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("possorted_genome_bam_B4KHF:", "scR53_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("possorted_genome_bam_QCZY3:", "scR54_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("possorted_genome_bam_YRMOK:", "scR55_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("x", "-1", colnames(ambiguous))
+ambiguous <- ambiguous[,colnames(pvr_sn)] #subset to only nuclei in pvr_sn
+sn_loom_built$ambiguous <- ambiguous
+
+#Convert built loom file to seurat.
+sc_bm <- as.Seurat(x = sc_loom_built)
+sn_bm <- as.Seurat(x = sn_loom_built)
+
+#Do sc_bm and pvr_sc have the same order of cells?
+setequal(colnames(sc_bm), colnames(pvr_sc))
+setequal(colnames(sn_bm), colnames(pvr_sn))
+
+#Add nCount and nFeature metadata to OG seurat objects.
+pvr_sc@meta.data$nCount_spliced <- sc_bm@meta.data$nCount_spliced
+pvr_sc@meta.data$nFeature_spliced <- sc_bm@meta.data$nFeature_spliced
+pvr_sc@meta.data$nCount_unspliced <- sc_bm@meta.data$nCount_unspliced
+pvr_sc@meta.data$nFeature_unspliced <- sc_bm@meta.data$nFeature_unspliced
+pvr_sc@meta.data$nCount_ambiguous <- sc_bm@meta.data$nCount_ambiguous
+pvr_sc@meta.data$nFeature_ambiguous <- sc_bm@meta.data$nFeature_ambiguous
+
+pvr_sn@meta.data$nCount_spliced <- sn_bm@meta.data$nCount_spliced
+pvr_sn@meta.data$nFeature_spliced <- sn_bm@meta.data$nFeature_spliced
+pvr_sn@meta.data$nCount_unspliced <- sn_bm@meta.data$nCount_unspliced
+pvr_sn@meta.data$nFeature_unspliced <- sn_bm@meta.data$nFeature_unspliced
+pvr_sn@meta.data$nCount_ambiguous <- sn_bm@meta.data$nCount_ambiguous
+pvr_sn@meta.data$nFeature_ambiguous <- sn_bm@meta.data$nFeature_ambiguous
+
+#Add metadata to pvr_comb.int
+
+    # does this code randomly sample the same cells if reran since set.seed =1234?
+pvr_comb2<- merge(pvr_sc[, sample(colnames(pvr_sc), size =5630, replace=F)],
+                              y = pvr_sn[, sample(colnames(pvr_sn), size =5630, replace=F)], 
+                              project = "pvr_comb.downsampled")
+
+    # does pvr_comb2 have same cells as pvr_comb.int?
+testcells <- colnames(pvr_comb2)
+ogcells <- colnames(pvr_comb.int)
+setequal(testcells, ogcells)
+        #Answer: YES it has the same cells in the same order.
+
+pvr_comb.int@meta.data$nCount_spliced <- pvr_comb2@meta.data$nCount_spliced
+pvr_comb.int@meta.data$nFeature_spliced <- pvr_comb2@meta.data$nFeature_spliced
+pvr_comb.int@meta.data$nCount_unspliced <- pvr_comb2@meta.data$nCount_unspliced
+pvr_comb.int@meta.data$nFeature_unspliced <- pvr_comb2@meta.data$nFeature_unspliced
+pvr_comb.int@meta.data$nCount_ambiguous <- pvr_comb2@meta.data$nCount_ambiguous
+pvr_comb.int@meta.data$nFeature_ambiguous <- pvr_comb2@meta.data$nFeature_ambiguous
+
+saveRDS(pvr_comb.int, file="/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_comb.int.rds")
+
+
+#box and whisker plot (NORMAL PLOT)
+colors2 <- c("#00BFEB", "#E43E3E")
+pvr_comb.int@meta.data %>%
+  ggplot(aes(x=run, y=nCount_spliced, fill=run)) + 
+  geom_boxplot(outlier.shape= NA) + #outier.shape = NA hides outliers so raw data pts can be plotted
+  geom_jitter(color="black", size=0.4, alpha=0.1) +
+  scale_fill_manual(values= colors2) +
+  theme_classic()
+
+pvr_comb.int@meta.data %>%
+  ggplot(aes(x=run, y=nCount_unspliced, fill=run)) + 
+  geom_boxplot(outlier.shape= NA) + #outier.shape = NA hides outliers so raw data pts can be plotted
+  geom_jitter(color="black", size=0.4, alpha=0.1) +
+  scale_fill_manual(values= colors2) +
+  theme_classic()
+
+pvr_comb.int@meta.data %>%
+  ggplot(aes(x=run, y=nCount_ambiguous, fill=run)) + 
+  geom_boxplot(outlier.shape= NA) + #outier.shape = NA hides outliers so raw data pts can be plotted
+  geom_jitter(color="black", size=0.4, alpha=0.1) +
+  scale_fill_manual(values= colors2) +
+  theme_classic()
+
+pvr_comb.int@meta.data %>%
+  ggplot(aes(x=run, y=nFeature_spliced, fill=run)) + 
+  geom_boxplot(outlier.shape= NA) + #outier.shape = NA hides outliers so raw data pts can be plotted
+  geom_jitter(color="black", size=0.4, alpha=0.1) +
+  scale_fill_manual(values= colors2) +
+  theme_classic()
+
+pvr_comb.int@meta.data %>%
+  ggplot(aes(x=run, y=nFeature_unspliced, fill=run)) + 
+  geom_boxplot(outlier.shape= NA) + #outier.shape = NA hides outliers so raw data pts can be plotted
+  geom_jitter(color="black", size=0.4, alpha=0.1) +
+  scale_fill_manual(values= colors2) +
+  theme_classic() 
+
+pvr_comb.int@meta.data %>%
+  ggplot(aes(x=run, y=nFeature_ambiguous, fill=run)) + 
+  geom_boxplot(outlier.shape= NA) + #outier.shape = NA hides outliers so raw data pts can be plotted
+  geom_jitter(color="black", size=0.4, alpha=0.1) +
+  scale_fill_manual(values= colors2) +
+  theme_classic()
+
+
+
+#box and whisker plot (NO LEGEND,AXIS)
+colors2 <- c("#00BFEB", "#E43E3E")
+pvr_comb.int@meta.data %>%
+  ggplot(aes(x=run, y=nCount_spliced, fill=run)) + 
+  geom_boxplot(outlier.shape= NA) + #outier.shape = NA hides outliers so raw data pts can be plotted
+  geom_jitter(color="black", size=0.4, alpha=0.1) +
+  scale_fill_manual(values= colors2) +
+  theme_classic() +
+  theme(axis.ticks = element_blank(), axis.text = element_blank(),
+  axis.line = element_blank(), title= element_blank(), legend.position = "none")
+
+pvr_comb.int@meta.data %>%
+  ggplot(aes(x=run, y=nCount_unspliced, fill=run)) + 
+  geom_boxplot(outlier.shape= NA) + #outier.shape = NA hides outliers so raw data pts can be plotted
+  geom_jitter(color="black", size=0.4, alpha=0.1) +
+  scale_fill_manual(values= colors2) +
+  theme_classic() +
+  theme(axis.ticks = element_blank(), axis.text = element_blank(),
+  axis.line = element_blank(), title= element_blank(), legend.position = "none")
+
+pvr_comb.int@meta.data %>%
+  ggplot(aes(x=run, y=nCount_ambiguous, fill=run)) + 
+  geom_boxplot(outlier.shape= NA) + #outier.shape = NA hides outliers so raw data pts can be plotted
+  geom_jitter(color="black", size=0.4, alpha=0.1) +
+  scale_fill_manual(values= colors2) +
+  theme_classic() +
+  theme(axis.ticks = element_blank(), axis.text = element_blank(),
+  axis.line = element_blank(), title= element_blank(), legend.position = "none")
+
+pvr_comb.int@meta.data %>%
+  ggplot(aes(x=run, y=nFeature_spliced, fill=run)) + 
+  geom_boxplot(outlier.shape= NA) + #outier.shape = NA hides outliers so raw data pts can be plotted
+  geom_jitter(color="black", size=0.4, alpha=0.1) +
+  scale_fill_manual(values= colors2) +
+  theme_classic() +
+  theme(axis.ticks = element_blank(), axis.text = element_blank(),
+  axis.line = element_blank(), title= element_blank(), legend.position = "none")
+
+pvr_comb.int@meta.data %>%
+  ggplot(aes(x=run, y=nFeature_unspliced, fill=run)) + 
+  geom_boxplot(outlier.shape= NA) + #outier.shape = NA hides outliers so raw data pts can be plotted
+  geom_jitter(color="black", size=0.4, alpha=0.1) +
+  scale_fill_manual(values= colors2) +
+  theme_classic() +
+  theme(axis.ticks = element_blank(), axis.text = element_blank(),
+  axis.line = element_blank(), title= element_blank(), legend.position = "none")
+
+pvr_comb.int@meta.data %>%
+  ggplot(aes(x=run, y=nFeature_ambiguous, fill=run)) + 
+  geom_boxplot(outlier.shape= NA) + #outier.shape = NA hides outliers so raw data pts can be plotted
+  geom_jitter(color="black", size=0.4, alpha=0.1) +
+  scale_fill_manual(values= colors2) +
+  theme_classic() +
+  theme(axis.ticks = element_blank(), axis.text = element_blank(),
+  axis.line = element_blank(), title= element_blank(), legend.position = "none")
+
+```
+
+Contamination score plots.
+```{r}
+seurat <- readRDS(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_comb_int.rds")
+seurat@meta.data$Celltype <- gsub(" ", ".", seurat@meta.data$Celltype)
+seurat@meta.data$Celltype <- factor(seurat@meta.data$Celltype, levels = c("Rod", "Cone", "Bipolar", "Amacrine", "Horizontal", "RGC", "Müller.Glia", "Microglia", "Oligodendrocytes", "Astrocyte"))
+Idents(seurat) <- 'Celltype'
+
+run <- c("Cells", "Nuclei")
+list <- list()
+genes <- list()
+
+for (y in run) {
+    sub <- subset(seurat, subset = (run == as.character(y)))
+    celltypes <- as.character(unique(sub@meta.data$Celltype))
+for (i in celltypes) {
+      x<- FindMarkers(sub, ident.1 = as.character(i), only.pos = T, max.cells.per.ident = 2000)
+      x <- x[order(-x$avg_log2FC),] 
+      x <- rownames(x)[1:50]
+      sub <- AddModuleScore_UCell(sub, features = list(x), name = as.character(i))
+      genes[[paste0(as.character(y), "_", as.character(i), sep="")]] <- x
+      cat(paste(as.character(y), as.character(i), "completed.", sep= " "))
+      }
+        list[[as.character(y)]] <- sub
+        cat("Round completed.")
+        }
+
+table <- data.frame()
+merged <- merge(list$Cells, y = c(list$Nuclei))
+merged@meta.data$Celltype <- factor(merged@meta.data$Celltype, levels = c("Rod", "Cone", "Bipolar", "Amacrine", "Horizontal", "RGC", "Müller.Glia", "Microglia", "Oligodendrocytes", "Astrocyte"))
+celltypes <- as.character(unique(merged@meta.data$Celltype))
+
+for (i in celltypes) {
+      df<-as.data.frame(aggregate(merged@meta.data[[paste0("signature_1", as.character(i))]], 
+                              list(merged@meta.data$Celltype,merged@meta.data$run), mean))
+      colnames(df) <- c("Celltype", "run", "meanUCell")
+      df$denominator[df$run == "Cells"] <- df$meanUCell[df$Celltype == i & df$run == "Cells"]
+      df$denominator[df$run == "Nuclei"] <- df$meanUCell[df$Celltype == i & df$run == "Nuclei"]
+      df$proportion <- df$meanUCell/df$denominator
+      df$selectedCelltype <- as.character(i)
+      table <- rbind(table, df)
+      cat(paste0(as.character(i), "completed."))
+}
+
+
+#BARPLOT
+celltypes <- c("Bipolar", "Amacrine", "Rod", "Müller.Glia")
+colors2 <- c("#4484DF", "#DF9144")
+for (i in celltypes) {
+  x <- subset(table, subset = (selectedCelltype == as.character(i)))
+  p <- ggplot(x, aes(Celltype, proportion, fill= run)) +
+  geom_col(position = position_dodge2(preserve = "single")) + 
+  labs(y = "UCell Score proportion") + theme(plot.title = element_text(hjust=0.5, face="bold")) +
+  ggtitle(as.character(i)) + theme_classic() +  scale_fill_manual(values = colors2) + RotatedAxis()
+  print(p)
+}
+
+#HEATMAP
+table$Celltype2 <- paste0(table$run, "_", table$Celltype)
+table$selectedCelltype2 <- paste0(table$run, "_", table$selectedCelltype)
+
+selectedCelltype2 <- unique(table$selectedCelltype2)
+tab <- data.frame(row.names = table$selectedCelltype2[1:length(unique(table$selectedCelltype2))])
+for (i in selectedCelltype2) {
+  x <- subset(table, subset = (selectedCelltype2 == as.character(i)))
+  tab <- cbind(tab, x$proportion)
+}
+colnames(tab) <- selectedCelltype2
+tab <- as.matrix(tab)
+heatmap(tab)
+
+---
+# heatmap all cell types
+celltype <- unique(table$Celltype)
+tab <- data.frame(row.names = table$Celltype2[1:length(unique(table$Celltype2))])
+for (i in celltype) {
+  x <- subset(table, subset = (selectedCelltype == as.character(i)))
+  tab <- cbind(tab, x$proportion)
+}
+colnames(tab) <- celltype
+tab <- as.matrix(tab)
+heatmap(tab)
+
+# heatmap some cell types
+celltype <- c("Rod", "Bipolar", "Amacrine", "Müller.Glia")
+columns <- vector()
+tab <- data.frame(row.names = table$Celltype2[1:length(unique(table$Celltype2))])
+for (i in celltype) {
+  x <- subset(table, subset = (selectedCelltype == as.character(i)))
+  tab <- cbind(tab, x$proportion)
+}
+colnames(tab) <- celltype
+tab <- as.matrix(tab)
+#Heatmap(tab, col= color)
+pheatmap(tab, color= rev(colorRampPalette(brewer.pal(11, "RdBu"))(100)), 
+         border_color = NA, 
+         legend_breaks = c(0.2, 0.7, 1.2), 
+         cellwidth = 10,
+         cellheight = 10,
+         treeheight_row = 0, treeheight_col = 0,
+         angle_col = 90
+         )
+```
+
+Save and load files.
+```{r}
+saveRDS(pvr_sc, file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_sc.rds")
+saveRDS(pvr_sn, file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_sn.rds")
+saveRDS(pvr_comb, file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_comb.rds")
+
+saveRDS(pvr_comb.int, file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_comb.int.rds")
+saveRDS(pvr_sn_mg, file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_sn_mg.rds")
+saveRDS(pvr_sc_mg, file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_sc_mg.rds")
+
+write_csv(sc.prop, file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/sc.prop.csv")
+write_csv(sn.prop, file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/sn.prop.csv")
+
+write_csv(df, file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/df_comb.int.csv")
+write_csv(de, file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/de_comb.int.csv", col_names=T)
+
+pvr_sn<- readRDS(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_sn.rds")
+pvr_sc <- readRDS(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_sc.rds")
+pvr_comb <- readRDS(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_comb.rds")
+
+pvr_sn.int<- readRDS(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_sn_int.rds")
+pvr_sc.int <- readRDS(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_sc_int.rds")
+pvr_comb.int <- readRDS(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_comb_int.rds")
+
+pvr_sn_mg<- readRDS(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_sn_mg.rds")
+pvr_sc_mg<- readRDS(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_sc_mg.rds")
+mgfeat <- read_csv(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/mgfeat.csv")
+
+sc.prop <- read_csv(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/sc.prop.csv")
+sn.prop <- read_csv(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/sn.prop.csv")
+
+df <- read_csv(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/df_comb.int.csv")
+de <- read_csv(file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/de_comb.int.csv")
+```
