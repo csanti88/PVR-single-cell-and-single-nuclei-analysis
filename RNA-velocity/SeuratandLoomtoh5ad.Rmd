@@ -1,0 +1,292 @@
+---
+title: "pvr_mg_figure5"
+author: "Megan Gimmen"
+date: "4/12/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(Seurat)
+library(SeuratDisk)
+library(SeuratWrappers)
+```
+
+```{r}
+sn_loom <- ReadVelocity(file = "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/RNAVelocity/sn.loom")
+sc_loom <- ReadVelocity(file = "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/RNAVelocity/sc.loom")
+comb_loom <- ReadVelocity(file = "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/RNAVelocity/comb.loom")
+
+#read RDS
+comb <- readRDS("/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_snsc_mg_ogumap_eq.rds")
+temp <- readRDS("/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/pvr_mg_eq_alra_pseudotime.rds")
+comb@meta.data[["pseudotime"]] <- temp@meta.data[["pseudotime"]]
+
+x <- SplitObject(comb, split.by = "run")
+sn <- x$Nuclei
+sn <- sn %>% NormalizeData() %>% ScaleData()
+sc <- x$Cells
+sc <- sc %>% NormalizeData() %>% ScaleData()
+rm(x)
+```
+
+Build a subsetted loom file. Correct loom cell names to match OG seurat object. Subset loom by cell type.
+```{r}
+#Single Cell
+sc_loom_built <- list()
+spliced <- sc_loom[["spliced"]]
+colnames(spliced) <- gsub("possorted_genome_bam_QIGQR:", "scR44_", colnames(spliced))
+colnames(spliced) <- gsub("possorted_genome_bam_LPJH2:", "scR46_", colnames(spliced))
+colnames(spliced) <- gsub("possorted_genome_bam_638JL:", "scR52_", colnames(spliced))
+colnames(spliced) <- gsub("x", "-1", colnames(spliced))
+spliced <- spliced[,colnames(sc)]
+sc_loom_built$spliced <- spliced
+unspliced <- sc_loom[["unspliced"]]
+colnames(unspliced) <- gsub("possorted_genome_bam_QIGQR:", "scR44_", colnames(unspliced))
+colnames(unspliced) <- gsub("possorted_genome_bam_LPJH2:", "scR46_", colnames(unspliced))
+colnames(unspliced) <- gsub("possorted_genome_bam_638JL:", "scR52_", colnames(unspliced))
+colnames(unspliced) <- gsub("x", "-1", colnames(unspliced))
+unspliced <- unspliced[,colnames(sc)]
+sc_loom_built$unspliced <- unspliced
+ambiguous <- sc_loom[["ambiguous"]]
+colnames(ambiguous) <- gsub("possorted_genome_bam_QIGQR:", "scR44_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("possorted_genome_bam_LPJH2:", "scR46_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("possorted_genome_bam_638JL:", "scR52_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("x", "-1", colnames(ambiguous))
+ambiguous <- ambiguous[,colnames(sc)]
+sc_loom_built$ambiguous <- ambiguous
+
+#Single Nuclei
+sn_loom_built <- list()
+spliced <- sn_loom[["spliced"]]
+colnames(spliced) <- gsub("possorted_genome_bam_IIT4C:", "scR40_", colnames(spliced))
+colnames(spliced) <- gsub("possorted_genome_bam_9NDRR:", "scR43_", colnames(spliced))
+colnames(spliced) <- gsub("possorted_genome_bam_09ZMR:", "scR47_", colnames(spliced))
+colnames(spliced) <- gsub("possorted_genome_bam_X6H79:", "scR48_", colnames(spliced))
+colnames(spliced) <- gsub("possorted_genome_bam_JV059:", "scR49_", colnames(spliced))
+colnames(spliced) <- gsub("possorted_genome_bam_WSGEO:", "scR50_", colnames(spliced))
+colnames(spliced) <- gsub("possorted_genome_bam_8QQP9:", "scR51_", colnames(spliced))
+colnames(spliced) <- gsub("x", "-1", colnames(spliced))
+spliced <- spliced[,colnames(sn)]
+sn_loom_built$spliced <- spliced
+unspliced <- sn_loom[["unspliced"]]
+colnames(unspliced) <- gsub("possorted_genome_bam_IIT4C:", "scR40_", colnames(unspliced))
+colnames(unspliced) <- gsub("possorted_genome_bam_9NDRR:", "scR43_", colnames(unspliced))
+colnames(unspliced) <- gsub("possorted_genome_bam_09ZMR:", "scR47_", colnames(unspliced))
+colnames(unspliced) <- gsub("possorted_genome_bam_X6H79:", "scR48_", colnames(unspliced))
+colnames(unspliced) <- gsub("possorted_genome_bam_JV059:", "scR49_", colnames(unspliced))
+colnames(unspliced) <- gsub("possorted_genome_bam_WSGEO:", "scR50_", colnames(unspliced))
+colnames(unspliced) <- gsub("possorted_genome_bam_8QQP9:", "scR51_", colnames(unspliced))
+colnames(unspliced) <- gsub("x", "-1", colnames(unspliced))
+unspliced <- unspliced[,colnames(sn)]
+sn_loom_built$unspliced <- unspliced
+ambiguous <- sn_loom[["ambiguous"]]
+colnames(ambiguous) <- gsub("possorted_genome_bam_IIT4C:", "scR40_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("possorted_genome_bam_9NDRR:", "scR43_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("possorted_genome_bam_09ZMR:", "scR47_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("possorted_genome_bam_X6H79:", "scR48_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("possorted_genome_bam_JV059:", "scR49_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("possorted_genome_bam_WSGEO:", "scR50_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("possorted_genome_bam_8QQP9:", "scR51_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("x", "-1", colnames(ambiguous))
+ambiguous <- ambiguous[,colnames(sn)]
+sn_loom_built$ambiguous <- ambiguous
+
+#Comb
+comb_loom_built <- list()
+spliced <- comb_loom[["spliced"]]
+colnames(spliced) <- gsub("possorted_genome_bam_QIGQR:", "scR44_", colnames(spliced))
+colnames(spliced) <- gsub("possorted_genome_bam_LPJH2:", "scR46_", colnames(spliced))
+colnames(spliced) <- gsub("possorted_genome_bam_638JL:", "scR52_", colnames(spliced))
+colnames(spliced) <- gsub("possorted_genome_bam_IIT4C:", "scR40_", colnames(spliced))
+colnames(spliced) <- gsub("possorted_genome_bam_9NDRR:", "scR43_", colnames(spliced))
+colnames(spliced) <- gsub("possorted_genome_bam_09ZMR:", "scR47_", colnames(spliced))
+colnames(spliced) <- gsub("possorted_genome_bam_X6H79:", "scR48_", colnames(spliced))
+colnames(spliced) <- gsub("possorted_genome_bam_JV059:", "scR49_", colnames(spliced))
+colnames(spliced) <- gsub("possorted_genome_bam_WSGEO:", "scR50_", colnames(spliced))
+colnames(spliced) <- gsub("possorted_genome_bam_8QQP9:", "scR51_", colnames(spliced))
+colnames(spliced) <- gsub("x", "-1", colnames(spliced))
+spliced <- spliced[,colnames(comb)]
+comb_loom_built$spliced <- spliced
+unspliced <- comb_loom[["unspliced"]]
+colnames(unspliced) <- gsub("possorted_genome_bam_QIGQR:", "scR44_", colnames(unspliced))
+colnames(unspliced) <- gsub("possorted_genome_bam_LPJH2:", "scR46_", colnames(unspliced))
+colnames(unspliced) <- gsub("possorted_genome_bam_638JL:", "scR52_", colnames(unspliced))
+colnames(unspliced) <- gsub("possorted_genome_bam_IIT4C:", "scR40_", colnames(unspliced))
+colnames(unspliced) <- gsub("possorted_genome_bam_9NDRR:", "scR43_", colnames(unspliced))
+colnames(unspliced) <- gsub("possorted_genome_bam_09ZMR:", "scR47_", colnames(unspliced))
+colnames(unspliced) <- gsub("possorted_genome_bam_X6H79:", "scR48_", colnames(unspliced))
+colnames(unspliced) <- gsub("possorted_genome_bam_JV059:", "scR49_", colnames(unspliced))
+colnames(unspliced) <- gsub("possorted_genome_bam_WSGEO:", "scR50_", colnames(unspliced))
+colnames(unspliced) <- gsub("possorted_genome_bam_8QQP9:", "scR51_", colnames(unspliced))
+colnames(unspliced) <- gsub("x", "-1", colnames(unspliced))
+unspliced <- unspliced[,colnames(comb)]
+comb_loom_built$unspliced <- unspliced
+ambiguous <- comb_loom[["ambiguous"]]
+colnames(ambiguous) <- gsub("possorted_genome_bam_QIGQR:", "scR44_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("possorted_genome_bam_LPJH2:", "scR46_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("possorted_genome_bam_638JL:", "scR52_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("possorted_genome_bam_IIT4C:", "scR40_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("possorted_genome_bam_9NDRR:", "scR43_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("possorted_genome_bam_09ZMR:", "scR47_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("possorted_genome_bam_X6H79:", "scR48_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("possorted_genome_bam_JV059:", "scR49_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("possorted_genome_bam_WSGEO:", "scR50_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("possorted_genome_bam_8QQP9:", "scR51_", colnames(ambiguous))
+colnames(ambiguous) <- gsub("x", "-1", colnames(ambiguous))
+ambiguous <- ambiguous[,colnames(comb)]
+comb_loom_built$ambiguous <- ambiguous
+
+rm(spliced, unspliced, ambiguous)
+```
+
+Convert built loom file to seurat.
+```{r}
+sc_bm <- as.Seurat(x = sc_loom_built)
+sn_bm <- as.Seurat(x = sn_loom_built)
+comb_bm <- as.Seurat(x = comb_loom_built)
+```
+
+Make an “RNA” assay from the spliced assay.
+```{r}
+sc_bm[["RNA"]] <- sc_bm[["spliced"]]
+sn_bm[["RNA"]] <- sn_bm[["spliced"]]
+comb_bm[["RNA"]] <- comb_bm[["spliced"]]
+```
+
+```{r}
+DefaultAssay(sc_bm) <- "RNA"
+DefaultAssay(sn_bm) <- "RNA"
+DefaultAssay(comb_bm) <- "RNA"
+
+sc_bm <- sc_bm %>% SCTransform() %>% RunPCA() %>% RunUMAP(dims = 1:3) %>% FindNeighbors(dims = 1:5) %>% FindClusters()
+sn_bm <- sn_bm %>% SCTransform() %>% RunPCA() %>% RunUMAP(dims = 1:3) %>% FindNeighbors(dims = 1:5) %>% FindClusters()
+comb_bm <- comb_bm %>% SCTransform() %>% RunPCA() %>% RunUMAP(dims = 1:3) %>% FindNeighbors(dims = 1:5) %>% FindClusters()
+```
+
+Replace UMAP entries.
+```{r}
+#cc
+sc_bm@reductions[["umap"]]@cell.embeddings <- sc@reductions[["umap"]]@cell.embeddings
+sn_bm@reductions[["umap"]]@cell.embeddings <- sn@reductions[["umap"]]@cell.embeddings
+comb_bm@reductions[["umap"]]@cell.embeddings <- comb@reductions[["umap"]]@cell.embeddings
+```
+
+Add metadata.
+```{r}
+#sc
+sc_bm@meta.data[["run"]] <- sc@meta.data[["run"]]
+sc_bm@meta.data[["treatment"]] <- sc@meta.data[["treatment"]]
+sc_bm@meta.data[["treatment2"]] <- sc@meta.data[["treatment2"]]
+sc_bm@meta.data[["Celltype"]] <- sc@meta.data[["Celltype"]]
+sc_bm@meta.data[["State"]] <- sc@meta.data[["State"]]
+sc_bm@meta.data[["FinalClusterNumbers"]] <- sc@meta.data[["FinalClusterNumbers"]]
+sc_bm@meta.data[["pseudotime"]] <- sc@meta.data[["pseudotime"]]
+
+sc_bm@meta.data[["treatment_num"]] <- sc@meta.data[["treatment"]]
+levels(sc_bm$treatment_num)[match("Control",levels(sc_bm$treatment_num))] <- "0"
+levels(sc_bm$treatment_num)[match("Hr4",levels(sc_bm$treatment_num))] <- "1"
+levels(sc_bm$treatment_num)[match("Day14",levels(sc_bm$treatment_num))] <- "2"
+
+sc_bm@meta.data[["State_num"]] <- sc@meta.data[["State"]]
+levels(sc_bm$State_num)[match("Resting",levels(sc_bm$State_num))] <- "0"
+levels(sc_bm$State_num)[match("Reactive",levels(sc_bm$State_num))] <- "1"
+levels(sc_bm$State_num)[match("Fibrotic",levels(sc_bm$State_num))] <- "2"
+
+sc_bm@meta.data[["run_num"]] <- sc@meta.data[["run"]]
+levels(sc_bm$run_num)[match("Cells",levels(sc_bm$run_num))] <- "0"
+levels(sc_bm$run_num)[match("Nuclei",levels(sc_bm$run_num))] <- "1"
+
+#sn
+sn_bm@meta.data[["run"]] <- sn@meta.data[["run"]]
+sn_bm@meta.data[["treatment"]] <- sn@meta.data[["treatment"]]
+sn_bm@meta.data[["treatment2"]] <- sn@meta.data[["treatment2"]]
+sn_bm@meta.data[["Celltype"]] <- sn@meta.data[["Celltype"]]
+sn_bm@meta.data[["State"]] <- sn@meta.data[["State"]]
+sn_bm@meta.data[["FinalClusterNumbers"]] <- sn@meta.data[["FinalClusterNumbers"]]
+sn_bm@meta.data[["pseudotime"]] <- sn@meta.data[["pseudotime"]]
+
+sn_bm@meta.data[["treatment_num"]] <- sn@meta.data[["treatment"]]
+levels(sn_bm$treatment_num)[match("Control",levels(sn_bm$treatment_num))] <- "0"
+levels(sn_bm$treatment_num)[match("Hr4",levels(sn_bm$treatment_num))] <- "1"
+levels(sn_bm$treatment_num)[match("Day14",levels(sn_bm$treatment_num))] <- "2"
+
+sn_bm@meta.data[["State_num"]] <- sn@meta.data[["State"]]
+levels(sn_bm$State_num)[match("Resting",levels(sn_bm$State_num))] <- "0"
+levels(sn_bm$State_num)[match("Reactive",levels(sn_bm$State_num))] <- "1"
+levels(sn_bm$State_num)[match("Fibrotic",levels(sn_bm$State_num))] <- "2"
+
+sn_bm@meta.data[["run_num"]] <- sn@meta.data[["run"]]
+levels(sn_bm$run_num)[match("Cells",levels(sn_bm$run_num))] <- "0"
+levels(sn_bm$run_num)[match("Nuclei",levels(sn_bm$run_num))] <- "1"
+
+#comb
+comb_bm@meta.data[["run"]] <- comb@meta.data[["run"]]
+comb_bm@meta.data[["treatment"]] <- comb@meta.data[["treatment"]]
+comb_bm@meta.data[["treatment2"]] <- comb@meta.data[["treatment2"]]
+comb_bm@meta.data[["Celltype"]] <- comb@meta.data[["Celltype"]]
+comb_bm@meta.data[["State"]] <- comb@meta.data[["State"]]
+comb_bm@meta.data[["FinalClusterNumbers"]] <- comb@meta.data[["FinalClusterNumbers"]]
+comb_bm@meta.data[["pseudotime"]] <- comb@meta.data[["pseudotime"]]
+
+comb_bm@meta.data[["treatment_num"]] <- comb@meta.data[["treatment"]]
+levels(comb_bm$treatment_num)[match("Control",levels(comb_bm$treatment_num))] <- "0"
+levels(comb_bm$treatment_num)[match("Hr4",levels(comb_bm$treatment_num))] <- "1"
+levels(comb_bm$treatment_num)[match("Day14",levels(comb_bm$treatment_num))] <- "2"
+
+comb_bm@meta.data[["State_num"]] <- comb@meta.data[["State"]]
+levels(comb_bm$State_num)[match("Resting",levels(comb_bm$State_num))] <- "0"
+levels(comb_bm$State_num)[match("Reactive",levels(comb_bm$State_num))] <- "1"
+levels(comb_bm$State_num)[match("Fibrotic",levels(comb_bm$State_num))] <- "2"
+
+comb_bm@meta.data[["run_num"]] <- comb@meta.data[["run"]]
+levels(comb_bm$run_num)[match("Cells",levels(comb_bm$run_num))] <- "0"
+levels(comb_bm$run_num)[match("Nuclei",levels(comb_bm$run_num))] <- "1"
+```
+
+```{r}
+three <- hue_pal()(3)
+two <- hue_pal()(2)
+```
+
+```{r}
+Idents(comb) <- 'run'
+Idents(sn) <- 'run'
+Idents(sc) <- 'run'
+
+de <- FindMarkers(comb, ident.1= "Cells", ident.2= "Nuclei", min.pct=0, min.cells.feature=0, min.cells.group=0, logfc.threshold=0)
+de$genes <- rownames(de)
+write_csv(de, file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/RNAVelocity/de_mg_comb.csv")
+
+de <- FindMarkers(sn, ident.1= "Cells", ident.2= "Nuclei", min.pct=0, min.cells.feature=0, min.cells.group=0, logfc.threshold=0)
+de$genes <- rownames(de)
+write_csv(de, file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/RNAVelocity/de_mg_sn.csv")
+
+de <- FindMarkers(sc, ident.1= "Cells", ident.2= "Nuclei", min.pct=0, min.cells.feature=0, min.cells.group=0, logfc.threshold=0)
+de$genes <- rownames(de)
+write_csv(de, file= "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/RNAVelocity/de_mg_sc.csv")
+
+#spliced DE
+```
+
+
+```{r}
+DefaultAssay(sc_bm) <- "RNA"
+DefaultAssay(sn_bm) <- "RNA"
+DefaultAssay(comb_bm) <- "RNA"
+
+#save
+SaveH5Seurat(sc_bm, filename = "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/RNAVelocity/mg_sc.h5Seurat")
+Convert("/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/RNAVelocity/mg_sc.h5Seurat", dest = "h5ad")
+SaveH5Seurat(sn_bm, filename = "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/RNAVelocity/mg_sn.h5Seurat")
+Convert("/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/RNAVelocity/mg_sn.h5Seurat", dest = "h5ad")
+SaveH5Seurat(comb_bm, filename = "/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/RNAVelocity/mg_comb.h5Seurat")
+Convert("/Volumes/MYG_5TB/Pvr/analysis/sc_v_sn_manuscript/RNAVelocity/mg_comb.h5Seurat", dest = "h5ad")
+```
+
+
+
+
