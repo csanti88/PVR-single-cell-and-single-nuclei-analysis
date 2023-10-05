@@ -1,0 +1,263 @@
+library(rtracklayer)
+library(tidyverse)
+library(ggplot2)
+
+# Obtain list of protein coding and lncRNA genes
+gtf <- rtracklayer::import('~/Orycun2.gtf')
+gtf <- as.data.frame(gtf)
+cds <- gtf %>%  dplyr::filter(gene_biotype == "protein_coding") %>%  dplyr::pull(gene_id)
+lnc <- gtf %>%  dplyr::filter(gene_biotype == "lncRNA") %>%  dplyr::pull(gene_id)
+lnc <- intersect (rownames(pvr), lnc)
+cds <- intersect (rownames(pvr), cds)
+
+# Obtain list of transcription factor genes
+tf <- read.table("~/Orycun_TF.tsv", header = T)
+tf <- tf$Symbol
+tf <- unique(tf)
+tf <- intersect (rownames(pvr), tf)
+
+# Obtain list of mitochondrial genes (you have already done this)
+ah <- AnnotationHub()
+ahDb <- query(ah,pattern = c("Oryctolagus Cuniculus", "EnsDb"), ignore.case = TRUE)
+id <- ahDb %>%  mcols() %>%  rownames() %>%  tail(n = 1)
+edb <- ah[[id]]
+annotations <- genes(edb,return.type = "data.frame")  
+annotations <- annotations %>%  dplyr::select(gene_id, gene_name, gene_biotype, seq_name, description, entrezid)
+mt <- annotations %>%  dplyr::filter(seq_name == "MT") %>%  dplyr::pull(gene_name)
+mt<-mt[mt != ""]
+rm (ah, ahDb, id, edb, annotations)
+
+# Get percent feature sets
+pvr$percent.mt <- PercentageFeatureSet(object = pvr, features = mt)
+pvr$percent.cds <- PercentageFeatureSet(object = pvr, features = cds)
+pvr$percent.lnc <- PercentageFeatureSet(object = pvr, features = lnc)
+pvr$percent.tf <- PercentageFeatureSet(object = pvr, features = tf)
+
+# Plot split violin plot
+# It doesn't matter that it is grouped by doublets, 
+# we just want a single grouping of the cells/nuclei
+VlnPlot(pvr, features = c("percent.cds"),split.by = "run", 
+        split.plot = T, group.by = "doublet", pt.size = 0) + 
+        scale_fill_manual(values = c('blue', 'orange')) + 
+        ylab("% Transcripts") + xlab("")+
+        ggtitle("Protein\n coding") + 
+        theme(legend.position = "none", axis.text.x = element_blank(), 
+              axis.ticks.x = element_blank())
+
+VlnPlot(pvr, features = c("percent.mt"),split.by = "run", 
+        split.plot = T, group.by = "doublet", pt.size = 0) + 
+        scale_fill_manual(values = c('blue', 'orange')) + 
+        ylab("% Transcripts") + xlab("")+
+        ggtitle("Mitochondrial") + 
+        theme(legend.position = "none", axis.text.x = element_blank(), 
+              axis.ticks.x = element_blank())
+
+VlnPlot(pvr, features = c("percent.lnc"),split.by = "run", 
+        split.plot = T, group.by = "doublet", pt.size = 0) + 
+        scale_fill_manual(values = c('blue', 'orange')) + 
+        ylab("% Transcripts") + xlab("")+
+        ggtitle("lncRNA") + 
+        theme(legend.position = "none", axis.text.x = element_blank(), 
+              axis.ticks.x = element_blank())
+
+VlnPlot(pvr, features = c("percent.tf"),split.by = "run", 
+        split.plot = T, group.by = "doublet", pt.size = 0) + 
+        scale_fill_manual(values = c('blue', 'orange')) + 
+        ylab("% Transcripts") + xlab("")+
+        ggtitle("Transcription\n factors") + 
+        theme(legend.position = "none", axis.text.x = element_blank(), 
+              axis.ticks.x = element_blank())
+
+# Density plot of samples in pseudotime
+df <- as.data.frame(pvr@meta.data)
+ggplot(df, aes(x=pseudotime, color = state, fill= state)) + 
+  geom_density(alpha = 0.2) + theme_classic() + ylab("Cell Density")
+
+
+
+# Gene Ontology enrichment
+library (clusterProfiler)
+library (org.Hs.eg.db)
+library (scales)
+library (DOSE)
+
+organism = "org.Hs.eg.db"
+cellDE <- read.csv(file = "C:/Users/Clayton/Downloads/de_eqcelltype_cell.csv", row.names = 1)
+nucDE <- read.csv(file = "C:/Users/Clayton/Downloads/de_eqcelltype_nuclei.csv", row.names = 1)
+
+
+GO_cell <- enrichGO(rownames(cellDE), keyType = "SYMBOL",ont = "BP", 
+               OrgDb = organism, readable = F)
+GO_cell2 <- simplify(GO_cell, cutoff=0.7, by="p.adjust", select_fun=min)
+GO_cell2 <- GO_cell2@result
+GO_cell2$GeneRatio<-parse_ratio(GO_cell2$GeneRatio)
+GO_cell2$Description <- factor(GO_cell2$Description, levels = GO_cell2$Description)
+
+
+GO_nuc <- enrichGO(rownames(nucDE), keyType = "SYMBOL",ont = "BP", 
+                    OrgDb = organism, readable = F)
+GO_nuc2 <- simplify(GO_nuc, cutoff=0.7, by="p.adjust", select_fun=min)
+GO_nuc2 <- GO_nuc2@result
+GO_nuc2$GeneRatio<-parse_ratio(GO_nuc2$GeneRatio)
+GO_nuc2$Description <- factor(GO_nuc2$Description, levels = GO_nuc2$Description)
+rm (GO_cell, GO_nuc)
+
+
+# Change colors and aesthetics
+# Plot cell dotplot
+ggplot(GO_cell2[1:5,], aes(log10(p.adjust), y = Description, size = Count, color = p.adjust )) + 
+  geom_point() + 
+  scale_x_reverse() +
+  ggtitle("Genes over-represented in Cells ") + 
+  theme_classic() +  
+  scale_y_discrete(name = ,labels = wrap_format(30), limits=rev) +
+  scale_color_continuous(low="#1767E8", high="#16b1e9", guide=guide_colorbar(reverse=TRUE))
+
+# Plot cell barplot
+ggplot(GO_cell2[1:5,], aes(log10(p.adjust), y = Description, fill = p.adjust )) + 
+  geom_col() + 
+  scale_x_reverse() +
+  ggtitle("Genes over-represented in Cells ") + 
+  theme_classic() +  
+  scale_y_discrete(name = ,labels = wrap_format(30), limits=rev) +
+  scale_fill_continuous(low="#1767E8", high="#16b1e9", guide=guide_colorbar(reverse=TRUE))
+
+# Mirror nuclei dotplot
+ggplot(GO_nuc2[1:5,], aes(log10(p.adjust), y = Description, size = Count, color = p.adjust )) + 
+  geom_point() + 
+  ggtitle("Genes over-represented in Nuclei ") + 
+  theme_classic() + 
+  scale_y_discrete(position = "right",labels = wrap_format(30), limits=rev) + 
+  theme(legend.position = "left") +
+  scale_color_continuous(low="#f3780c", high="#e9b416", guide=guide_colorbar(reverse=TRUE))
+
+# Mirror nuclei barplot
+ggplot(GO_nuc2[1:5,], aes(log10(p.adjust), y = Description, fill = p.adjust )) + 
+  geom_col() + 
+  ggtitle("Genes over-represented in Nuclei ") + 
+  theme_classic() + 
+  scale_y_discrete(position = "right",labels = wrap_format(30), limits=rev) + 
+  theme(legend.position = "left") +
+  scale_fill_continuous(low="#f3780c", high="#e9b416", guide=guide_colorbar(reverse=TRUE))
+
+
+
+for (i in 1:length(row_order(ht_cells))){
+  if (i == 1) {
+    clu <- t(t(row.names(pt.matrix_nuc[row_order(ht_cells)[[i]],])))
+    out <- cbind(clu, paste("cluster", i, sep=""))
+    colnames(out) <- c("GeneID", "Cluster")
+  } else {
+    clu <- t(t(row.names(pt.matrix_nuc[row_order(ht_cells)[[i]],])))
+    clu <- cbind(clu, paste("cluster", i, sep=""))
+    out <- rbind(out, clu)
+  }}
+
+
+
+
+
+
+
+
+
+##############################
+
+library("clusterProfiler")
+genelist<-list(rownames(fib_c),rownames(fib_n))
+
+names(genelist) <- c("Cells", "Nuclei")
+
+comp <- compareCluster(geneCluster = genelist, fun = "enrichGO",
+                       OrgDb="org.Hs.eg.db", pvalueCutoff=0.05, keyType = "SYMBOL")
+
+dotplot(comp, showCategory=20,label_format=50) + theme_classic()  
+barplot(comp, showCategory=20) + theme_classic()  
+
+
+xx <- pairwise_termsim(comp)                     
+colors2 <- c("#4484DF", "#DF9144")
+emapplot(xx, pie="count", cex_category=4,cex_line=0.5, 
+         layout="fr", legend_n = 2, repel = T) + 
+  scale_fill_manual(values=colors2, limits= c("Cells", "Nuclei"))
+
+
+#######################################
+
+library (pheatmap)
+library (Seurat)
+library (ComplexHeatmap)
+library (tidyverse)
+library (circlize)
+library (RColorBrewer)
+library (monocle3)
+
+mg <- readRDS (file = "C:/Users/Clayton/Downloads/pvr_mg_eq_alra_pseudotime.rds")
+startRes <- readRDS (file = "F:/Rabbit PVR/1st paper/scsn_mg_startres.rds")
+
+Idents (mg) <- "run"
+cell <- subset(mg, idents = "Cells")
+nuc <- subset(mg, idents = "Nuclei")
+topgenes <- subset(startRes, startRes$pvalue < 0.001)
+topgenes <- rownames(topgenes[order(topgenes$pvalue), ])  
+
+
+pt.matrix_cell <- cell@assays$RNA@counts[match(topgenes,rownames(cell)),order(cell@meta.data$pseudotime)]
+pt.matrix_cell <- t(apply(pt.matrix_cell,1,function(x){smooth.spline(x,df=3)$y}))
+pt.matrix_cell <- t(apply(pt.matrix_cell,1,function(x){(x-mean(x))/sd(x)}))
+pt.matrix_cell <- na.omit(pt.matrix_cell)
+
+pt.matrix_nuc <- nuc@assays$RNA@counts[match(topgenes,rownames(nuc)),order(nuc@meta.data$pseudotime)]
+pt.matrix_nuc <- t(apply(pt.matrix_nuc,1,function(x){smooth.spline(x,df=3)$y}))
+pt.matrix_nuc <- t(apply(pt.matrix_nuc,1,function(x){(x-mean(x))/sd(x)}))
+pt.matrix_nuc <- na.omit(pt.matrix_nuc)
+
+genes <- intersect(rownames(pt.matrix_cell), rownames(pt.matrix_nuc))
+pt.matrix_cell <- subset(pt.matrix_cell, rownames(pt.matrix_cell) %in% genes)
+pt.matrix_nuc <- subset(pt.matrix_nuc, rownames(pt.matrix_nuc) %in% genes)
+
+breaksList = seq(-3.5, 5.5, by = 0.05)
+ht_cells <- pheatmap(pt.matrix_cell,
+                     cluster_cols = FALSE,
+                     show_rownames = FALSE, 
+                     show_colnames = FALSE, , 
+                     clustering_method = "ward.D2",
+                     color = colorRamp2(seq(-2, 2,length=11),rev(brewer.pal(11, "Spectral"))), 
+                     breaks = breaksList)
+
+
+order <- row_order (ht_cells)
+
+
+ht_nuc <- pheatmap(pt.matrix_nuc,
+                   cluster_cols = FALSE,
+                   show_rownames = FALSE, 
+                   show_colnames = FALSE, , 
+                   clustering_method = "ward.D2", row_order = order,
+                   color = colorRamp2(seq(-2, 2,length=11),rev(brewer.pal(11, "Spectral"))), 
+                   breaks = breaksList)
+
+
+for (i in 1:length(row_order(ht_cells))){
+  if (i == 1) {
+    clu <- t(t(row.names(pt.matrix_nuc[row_order(ht_cells)[[i]],])))
+    out <- cbind(clu, paste("cluster", i, sep=""))
+    colnames(out) <- c("GeneID", "Cluster")
+  } else {
+    clu <- t(t(row.names(pt.matrix_nuc[row_order(ht_cells)[[i]],])))
+    clu <- cbind(clu, paste("cluster", i, sep=""))
+    out <- rbind(out, clu)
+  }}
+
+
+ht_nuc <- pheatmap(pt.matrix_nuc,
+                   cluster_cols = FALSE,
+                   show_rownames = FALSE, 
+                   show_colnames = FALSE, , 
+                   cluster_rows = FALSE,
+                   cutree_rows = 3,
+                   color = colorRamp2(seq(-2, 2,length=11),rev(brewer.pal(11, "Spectral"))), 
+                   breaks = breaksList)
+
+
+row.order = ht_cells$tree_row$order
