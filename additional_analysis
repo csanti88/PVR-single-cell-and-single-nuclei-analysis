@@ -261,3 +261,94 @@ ht_nuc <- pheatmap(pt.matrix_nuc,
 
 
 row.order = ht_cells$tree_row$order
+
+#For Fig S4
+mg <- readRDS(file ="F:/Rabbit PVR/1st paper/pvr_mg_eq_alra_pseudotime.rds")
+DefaultAssay(mg) <- "RNA"
+mg <- NormalizeData(mg)
+Idents(mg) <- "StateRun"
+fib_n <- FindMarkers(mg, ident.1 = "Fibrotic_Nuclei", ident.2 = "Resting_Nuclei", min.pct = 0.2)
+fib_c <- FindMarkers(mg, ident.1 = "Fibrotic_Cells", ident.2 = "Resting_Cells", min.pct = 0.2)
+genelist <- c(rownames(fib_c), rownames(fib_n)) %>% unique()
+fib_c1 <- FindMarkers(mg, ident.1 = "Fibrotic_Cells", ident.2 = "Resting_Cells", features = genelist, logfc.threshold = 0, min.pct = 0 )
+fib_n1 <- FindMarkers(mg, ident.1 = "Fibrotic_Nuclei", ident.2 = "Resting_Nuclei", features = genelist, logfc.threshold = 0, min.pct = 0 )
+colnames(fib_n1)[2] ="Nuclei_log2FC"
+colnames(fib_c1)[2] ="Cells_log2FC"
+colnames(fib_n1)[1] ="Nuclei_pval"
+colnames(fib_c1)[1] ="Nuclei_pval"
+fib <- merge(fib_n1[,1:2], fib_c1[,1:2], by = 'row.names', all = TRUE)
+bothgenes <- intersect(rownames(fib_c),rownames(fib_n))
+cellgenes <- setdiff(rownames(fib_c),rownames(fib_n))
+nucgenes <- setdiff(rownames(fib_n),rownames(fib_c))
+
+fib<-fib %>% mutate(group = case_when(Row.names %in% bothgenes ~ 'Both', Row.names %in% cellgenes ~ 'Cells', Row.names %in% nucgenes ~ "Nuclei"))
+fib$group <- factor(fib$group, levels = c("Cells", "Nuclei", "Both"))
+
+tmp <- fib[fib$group=="Both",] %>%
+  count(right = Nuclei_log2FC > 0, top = Cells_log2FC > 0) %>%
+  mutate(Nuclei_log2FC = 2 * (right - 0.5), Cells_log2FC = 2 * (top - 0.5))
+ggplot(fib[fib$group=="Both",], aes(x=Nuclei_log2FC, y=Cells_log2FC)) + 
+  geom_point(aes(color=group)) + 
+  scale_color_manual(values = "grey") +
+  theme_classic() +
+  geom_hline(yintercept=c(0),linetype=2) +
+  geom_vline(xintercept=c(0),linetype=2) +
+  theme(legend.position = "none") + ylim(c(-4,4)) + xlim(c(-4,4)) +
+  geom_text(aes(label = n), data = tmp) + 
+  theme(panel.border = element_rect(colour = "black", fill=NA, size=1)) 
+
+tmp <- fib[fib$group=="Nuclei",] %>%
+  count(right = Nuclei_log2FC > 0, top = Cells_log2FC > 0) %>%
+  mutate(Nuclei_log2FC = 2 * (right - 0.5), Cells_log2FC = 2 * (top - 0.5))
+ggplot(fib[fib$group=="Nuclei",], aes(x=Nuclei_log2FC, y=Cells_log2FC)) + 
+  geom_point(aes(color=group)) + 
+  scale_color_manual(values = "#DF9144") +
+  theme_classic() +
+  geom_hline(yintercept=c(0),linetype=2) +
+  geom_vline(xintercept=c(0),linetype=2) +
+  theme(legend.position = "none") + ylim(c(-4,4)) + xlim(c(-4,4)) +
+  geom_text(aes(label = n), data = tmp) + 
+  theme(panel.border = element_rect(colour = "black", fill=NA, size=1)) 
+
+tmp <- fib[fib$group=="Cells",] %>%
+  count(right = Nuclei_log2FC > 0, top = Cells_log2FC > 0) %>%
+  mutate(Nuclei_log2FC = 2 * (right - 0.5), Cells_log2FC = 2 * (top - 0.5))
+ggplot(fib[fib$group=="Cells",], aes(x=Nuclei_log2FC, y=Cells_log2FC)) + 
+  geom_point(aes(color=group)) + 
+  scale_color_manual(values = "#4484DF") +
+  theme_classic() +
+  geom_hline(yintercept=c(0),linetype=2) +
+  geom_vline(xintercept=c(0),linetype=2) +
+  theme(legend.position = "none") + ylim(c(-4,4)) + xlim(c(-4,4)) +
+  geom_text(aes(label = n), data = tmp) + 
+  theme(panel.border = element_rect(colour = "black", fill=NA, size=1)) 
+
+
+
+
+
+
+
+FeaturePlot(mg, features =c("LHX2"), split.by = "run", order=T, min.cutoff = "q30") & 
+  theme(axis.title=element_blank(),axis.ticks=element_blank(),
+       axis.text=element_blank(),line = element_blank())
+FeaturePlot(mg, features =c("KDR"), split.by = "run", order=T, min.cutoff = "q30") & 
+  theme(axis.title=element_blank(),axis.ticks=element_blank(),
+        axis.text=element_blank(),line = element_blank())
+FeaturePlot(mg, features =c("LIF"), split.by = "run", order=T, min.cutoff = "q30")& 
+  theme(axis.title=element_blank(),axis.ticks=element_blank(),
+        axis.text=element_blank(),line = element_blank())
+FeaturePlot(mg, features =c("FGF2"), split.by = "run", order=T, min.cutoff = "q30")& 
+  theme(axis.title=element_blank(),axis.ticks=element_blank(),
+        axis.text=element_blank(),line = element_blank())
+FeaturePlot(mg, features =c("IRF7"), split.by = "run", order=T, min.cutoff = "q30")& 
+  theme(axis.title=element_blank(),axis.ticks=element_blank(),
+        axis.text=element_blank(),line = element_blank())
+FeaturePlot(mg, features =c("RUNX2"), split.by = "run", order=T, min.cutoff = "q30")& 
+  theme(axis.title=element_blank(),axis.ticks=element_blank(),
+        axis.text=element_blank(),line = element_blank())
+
+
+
+
+
